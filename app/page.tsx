@@ -1,0 +1,914 @@
+'use client';
+
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import {
+  Krathong,
+  WishCategory,
+  TimeOfDay,
+  KrathongInput,
+  KrathongBase,
+  FlowerType,
+  CandleSet,
+  SacredItem,
+} from '@/types';
+import {
+  fetchLatestKrathongs,
+  fetchKrathongById,
+  createKrathong,
+  blessKrathong,
+  mapRowToKrathong,
+} from '@/lib/api';
+import { supabase, isDemoMode } from '@/lib/supabase';
+import {
+  getFontSizePreference,
+  saveFontSizePreference,
+  getMyKrathongIds,
+} from '@/lib/storage';
+import { sound } from '@/lib/sound';
+import { relaxKrathongPositions } from '@/lib/krathongLayout';
+
+// Components
+import { PondScene } from '@/components/PondScene/PondScene';
+import { KrathongFloatingItem } from '@/components/Krathong/KrathongFloatingItem';
+import { KrathongCustomizer } from '@/components/Customizer/KrathongCustomizer';
+import { KrathongDetailModal } from '@/components/Modals/KrathongDetailModal';
+import { FortuneModal } from '@/components/Modals/FortuneModal';
+import { SearchStatsDrawer } from '@/components/Modals/SearchStatsDrawer';
+import { WishCardModal } from '@/components/Modals/WishCardModal';
+import { InviteFriendsModal } from '@/components/Modals/InviteFriendsModal';
+import { InviteStoryModal } from '@/components/Modals/InviteStoryModal';
+import { GroupWaitingModal } from '@/components/Modals/GroupWaitingModal';
+import { SkyLanternModal } from '@/components/Modals/SkyLanternModal';
+import { KhongkhaBlessingModal } from '@/components/Modals/KhongkhaBlessingModal';
+
+// Icons
+import {
+  Plus,
+  Search,
+  Sparkles,
+  User,
+  BarChart3,
+  Bell,
+  Users,
+  Volume2,
+  VolumeX,
+  Flame,
+  Droplets,
+  Image as ImageIcon,
+  X,
+} from 'lucide-react';
+import { broadcastPartyLaunch, broadcastMemberJoined } from '@/lib/partySync';
+
+function LoyKrathongApp() {
+  const searchParams = useSearchParams();
+
+  // Always set to the magical Full Moon Night (คืนวันเพ็ญ) theme
+  const timeOfDay: TimeOfDay = 'moonlight';
+
+  // Complete Krathong Database (for Search, My Krathongs, and Stats - NEVER LOSES ITEMS)
+  const [allKrathongsDatabase, setAllKrathongsDatabase] = useState<Krathong[]>([]);
+
+  // Active Pond Krathongs (Displayed visually in the water)
+  const [pondKrathongs, setPondKrathongs] = useState<Krathong[]>([]);
+  const [isDemo, setIsDemo] = useState<boolean>(true);
+  const [selectedCategory, setSelectedCategory] = useState<WishCategory | 'all'>('all');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Modals & Drawers
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState<boolean>(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState<boolean>(false);
+  const [isLanternModalOpen, setIsLanternModalOpen] = useState<boolean>(false);
+  const [activePartyCode, setActivePartyCode] = useState<string | undefined>(undefined);
+  const [activePartyTime, setActivePartyTime] = useState<string | undefined>(undefined);
+  const [isFortuneOpen, setIsFortuneOpen] = useState<boolean>(false);
+  const [isSearchDrawerOpen, setIsSearchDrawerOpen] = useState<boolean>(false);
+  const [searchDrawerInitialTab, setSearchDrawerInitialTab] = useState<'search' | 'stats' | 'my-krathongs'>('search');
+  const [selectedKrathong, setSelectedKrathong] = useState<Krathong | null>(null);
+  const [focusedKrathongId, setFocusedKrathongId] = useState<string | null>(null);
+  const [justLaunchedId, setJustLaunchedId] = useState<string | null>(null);
+  const [showLaunchCelebrationDock, setShowLaunchCelebrationDock] = useState<boolean>(false);
+  const [newlyCreatedKrathong, setNewlyCreatedKrathong] = useState<Krathong | null>(null);
+  const [isCelebrationOpen, setIsCelebrationOpen] = useState<boolean>(false);
+  const [isKhongkhaModalOpen, setIsKhongkhaModalOpen] = useState<boolean>(false);
+  const [blessingKrathong, setBlessingKrathong] = useState<Krathong | null>(null);
+
+  // Group Waiting Room & Story Generator Modals
+  const [isGroupWaitingOpen, setIsGroupWaitingOpen] = useState<boolean>(false);
+  const [groupWaitingPartyCode, setGroupWaitingPartyCode] = useState<string>('RMUTK-789');
+  const [isGroupWaitingHost, setIsGroupWaitingHost] = useState<boolean>(true);
+
+  const [isStoryModalOpen, setIsStoryModalOpen] = useState<boolean>(false);
+  const [storyParams, setStoryParams] = useState<{
+    partyCode: string;
+    base: KrathongBase;
+    flower: FlowerType;
+    candle: CandleSet;
+    sacredItems: SacredItem[];
+    hostName?: string;
+  }>({
+    partyCode: 'RMUTK-789',
+    base: 'gear-base',
+    flower: 'lotus',
+    candle: 'traditional',
+    sacredItems: ['coin'],
+    hostName: 'เด็ก มทร.',
+  });
+
+  // Sound Mute State
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  // Interactive Touch Water Ripples
+  const [touchRipples, setTouchRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+
+  // Released Sky Lanterns
+  const [releasedLanterns, setReleasedLanterns] = useState<
+    { id: string; sender: string; wish: string; x: number }[]
+  >([]);
+
+  // Overcrowding Prevention: Drifting away krathongs set
+  const [driftingAwayIds, setDriftingAwayIds] = useState<Set<string>>(new Set());
+
+  // Minimal Toast Notification
+  const [notification, setNotification] = useState<string | null>(null);
+
+  // Check URL params for invite party link
+  useEffect(() => {
+    const partyParam = searchParams?.get('party');
+    const timeParam = searchParams?.get('time');
+    if (partyParam) {
+      setActivePartyCode(partyParam);
+      setGroupWaitingPartyCode(partyParam);
+      if (timeParam) setActivePartyTime(timeParam);
+      setNotification(`เพื่อนชวนคุณมาร่วมก๊วน "${partyParam}" ลอยกระทงด้วยกัน!`);
+      setTimeout(() => setNotification(null), 6000);
+    }
+  }, [searchParams]);
+
+  // Font Size Mode
+  const [fontSize, setFontSize] = useState<'normal' | 'large'>('normal');
+
+  useEffect(() => {
+    const pref = getFontSizePreference();
+    setFontSize(pref);
+    if (pref === 'large') {
+      document.documentElement.classList.add('text-mode-large');
+    }
+  }, []);
+
+  const handleToggleFontSize = () => {
+    const nextSize = fontSize === 'normal' ? 'large' : 'normal';
+    setFontSize(nextSize);
+    saveFontSizePreference(nextSize);
+    if (nextSize === 'large') {
+      document.documentElement.classList.add('text-mode-large');
+    } else {
+      document.documentElement.classList.remove('text-mode-large');
+    }
+  };
+
+  const handleToggleSound = () => {
+    const nextMuted = sound.toggleMute();
+    setIsMuted(nextMuted);
+    if (!nextMuted) {
+      sound.playSparkle();
+    }
+  };
+
+  // 1. Fetch Latest Krathongs
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { krathongs: data, isDemo: demoActive } = await fetchLatestKrathongs();
+
+      // Merge into allKrathongsDatabase so no items are ever lost from Search/Stats
+      setAllKrathongsDatabase((prev) => {
+        const map = new Map<string, Krathong>();
+        data.forEach((k) => map.set(k.id, k));
+        prev.forEach((k) => {
+          if (!map.has(k.id)) map.set(k.id, k);
+        });
+        return Array.from(map.values());
+      });
+
+      // Update pond krathongs smoothly without sudden disappearing
+      setPondKrathongs((prev) => {
+        if (prev.length === 0) return data;
+        const currentIds = new Set(prev.map((k) => k.id));
+        const newItems = data.filter((k) => !currentIds.has(k.id));
+        return [...newItems, ...prev];
+      });
+
+      setIsDemo(demoActive);
+    } catch (err) {
+      console.warn('Error loading krathongs:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // 2. Handle ?id=UUID query parameter
+  useEffect(() => {
+    const idParam = searchParams?.get('id');
+    if (!idParam) return;
+
+    const findInState = allKrathongsDatabase.find((k) => k.id === idParam);
+    if (findInState) {
+      setSelectedKrathong(findInState);
+      setFocusedKrathongId(findInState.id);
+    } else {
+      fetchKrathongById(idParam).then((item) => {
+        if (item) {
+          setAllKrathongsDatabase((prev) => (prev.some((k) => k.id === item.id) ? prev : [item, ...prev]));
+          setPondKrathongs((prev) => (prev.some((k) => k.id === item.id) ? prev : [item, ...prev]));
+          setSelectedKrathong(item);
+          setFocusedKrathongId(item.id);
+        } else {
+          setNotification('ไม่พบกระทงที่ค้นหา');
+          setTimeout(() => setNotification(null), 3500);
+        }
+      });
+    }
+  }, [searchParams, allKrathongsDatabase]);
+
+  // 3. Supabase Realtime Subscription (Rock-solid persistent channel)
+  useEffect(() => {
+    if (isDemoMode() || !supabase) return;
+    const client = supabase;
+
+    const channel = client
+      .channel('public:krathongs')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'krathongs' },
+        (payload) => {
+          const newRow = mapRowToKrathong(payload.new as Record<string, unknown>);
+          setAllKrathongsDatabase((prev) => [newRow, ...prev.filter((k) => k.id !== newRow.id)]);
+          setPondKrathongs((prev) => [newRow, ...prev.filter((k) => k.id !== newRow.id)]);
+
+          setNotification(`${newRow.sender_name} ปล่อยกระทงลงสู่สระแล้ว`);
+          setTimeout(() => setNotification(null), 4000);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'krathongs' },
+        (payload) => {
+          const updatedRow = mapRowToKrathong(payload.new as Record<string, unknown>);
+          setAllKrathongsDatabase((prev) =>
+            prev.map((k) => (k.id === updatedRow.id ? { ...k, ...updatedRow } : k))
+          );
+          setPondKrathongs((prev) =>
+            prev.map((k) => (k.id === updatedRow.id ? { ...k, ...updatedRow } : k))
+          );
+          setSelectedKrathong((prev) => (prev && prev.id === updatedRow.id ? { ...prev, ...updatedRow } : prev));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, []);
+
+  // 3.1 Cross-tab Realtime Sync (BroadcastChannel & LocalStorage Event)
+  useEffect(() => {
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (
+        e.key === 'rmutk_party_member_ping' ||
+        e.key === 'rmutk_loykrathong_custom_items' ||
+        e.key === 'rmutk_party_event_ping' ||
+        e.key?.startsWith('rmutk_party_launch_')
+      ) {
+        loadData();
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        bc = new BroadcastChannel('rmutk_party_sync');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'MEMBER_JOINED' || event.data?.type === 'PARTY_LAUNCH') {
+            loadData();
+          }
+        };
+      } catch {
+        bc = null;
+      }
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      if (bc) bc.close();
+    };
+  }, [loadData]);
+
+  // 4. Handle Create Krathong
+  const handleCreateKrathong = async (input: KrathongInput) => {
+    const result = await createKrathong(input);
+    if (result.success && result.krathong) {
+      const created = result.krathong;
+
+      setAllKrathongsDatabase((prev) => [created, ...prev.filter((k) => k.id !== created.id)]);
+      setPondKrathongs((prev) => [created, ...prev.filter((k) => k.id !== created.id)]);
+      setNewlyCreatedKrathong(created);
+      setFocusedKrathongId(created.id);
+      setJustLaunchedId(created.id);
+
+      if (input.mode === 'group') {
+        const code = input.party_code || activePartyCode || 'RMUTK-' + Math.floor(100 + Math.random() * 900);
+        setActivePartyCode(code);
+        setGroupWaitingPartyCode(code);
+
+        // Host tracking: if created the room or has host storage token
+        const isFromUrl = Boolean(searchParams?.get('party'));
+        let hostStatus = false;
+        try {
+          if (!isFromUrl || localStorage.getItem('party_host_' + code) === 'true') {
+            hostStatus = true;
+            localStorage.setItem('party_host_' + code, 'true');
+          }
+        } catch {
+          hostStatus = !isFromUrl;
+        }
+        setIsGroupWaitingHost(hostStatus);
+        setIsGroupWaitingOpen(true);
+        setIsCustomizerOpen(false);
+
+        // Broadcast that a new member joined this party!
+        broadcastMemberJoined(code, created);
+      } else {
+        // SOLO or COUPLE: Float directly into pond without blocking modals!
+        setIsCustomizerOpen(false);
+
+        // Water ripple at krathong location
+        if (typeof window !== 'undefined') {
+          const rx = (window.innerWidth * created.pos_x) / 100;
+          const ry = (window.innerHeight * created.pos_y) / 100;
+          setTouchRipples((prev) => [...prev.slice(-6), { id: Date.now(), x: rx, y: ry }]);
+        }
+
+        const msg =
+          input.mode === 'couple'
+            ? `กระทงคู่ของคุณและ ${created.secondary_name || 'คนรู้ใจ'} ลงไปลอยในสระน้ำแล้ว`
+            : 'กระทงของคุณลงไปลอยในสระน้ำ มทร.กรุงเทพ แล้ว';
+        setNotification(msg);
+        setTimeout(() => setNotification(null), 4500);
+      }
+    }
+    return result;
+  };
+
+  const handleGroupLaunchAll = () => {
+    // 1. Broadcast launch signal to all peer tabs/devices immediately!
+    broadcastPartyLaunch(groupWaitingPartyCode);
+
+    // 2. Close waiting room modal
+    setIsGroupWaitingOpen(false);
+
+    // 3. Highlight newly launched krathong
+    setFocusedKrathongId(newlyCreatedKrathong?.id || null);
+    setJustLaunchedId(newlyCreatedKrathong?.id || 'party-' + groupWaitingPartyCode);
+
+    // 4. Reload krathongs so all members in this party are visible in the pond!
+    loadData();
+
+    setNotification(`ก๊วน ${groupWaitingPartyCode} ปล่อยกระทงลงสู่สายน้ำ มทร.กรุงเทพ พร้อมกันแล้ว!`);
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const handleOpenStoryModal = (
+    code: string,
+    base: KrathongBase = 'gear-base',
+    flower: FlowerType = 'lotus',
+    candle: CandleSet = 'traditional',
+    sacredItems: SacredItem[] = ['coin'],
+    hostName?: string
+  ) => {
+    setStoryParams({
+      partyCode: code,
+      base,
+      flower,
+      candle,
+      sacredItems,
+      hostName: hostName || (newlyCreatedKrathong ? newlyCreatedKrathong.sender_name : undefined),
+    });
+    setIsStoryModalOpen(true);
+  };
+
+  // 5. Handle Bless Krathong
+  const handleBless = async (id: string) => {
+    const res = await blessKrathong(id);
+    if (res.success) {
+      setAllKrathongsDatabase((prev) =>
+        prev.map((k) => (k.id === id ? { ...k, bless_count: res.bless_count } : k))
+      );
+      setPondKrathongs((prev) =>
+        prev.map((k) => (k.id === id ? { ...k, bless_count: res.bless_count } : k))
+      );
+      if (selectedKrathong && selectedKrathong.id === id) {
+        setSelectedKrathong((prev) => (prev ? { ...prev, bless_count: res.bless_count } : null));
+      }
+    }
+    return res;
+  };
+
+  // 6. Interactive Touch Water Ripple in the Pond
+  const handlePondClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickY = e.clientY - rect.top;
+    const clickX = e.clientX - rect.left;
+
+    // Trigger ripples when clicking on the pond water area (lower 55% of viewport)
+    if (clickY > rect.height * 0.44) {
+      sound.playWaterDrop();
+      const newRipple = { id: Date.now() + Math.random(), x: clickX, y: clickY };
+      setTouchRipples((prev) => [...prev.slice(-6), newRipple]);
+      setTimeout(() => {
+        setTouchRipples((prev) => prev.filter((r) => r.id !== newRipple.id));
+      }, 1200);
+    }
+  };
+
+  // 7. Handle Release Sky Lantern
+  const handleReleaseLantern = (wish: string, senderName: string) => {
+    const newLantern = {
+      id: `lantern-${Date.now()}-${Math.random()}`,
+      sender: senderName,
+      wish,
+      x: 18 + Math.random() * 64, // Random horizontal position 18% - 82%
+    };
+    setReleasedLanterns((prev) => [...prev, newLantern]);
+    setNotification(`โคมลอยคำอธิษฐานของ "${senderName}" ลอยขึ้นสู่ท้องฟ้าแล้ว`);
+    setTimeout(() => setNotification(null), 5000);
+
+    // Auto-remove after floating out of screen (12s)
+    setTimeout(() => {
+      setReleasedLanterns((prev) => prev.filter((l) => l.id !== newLantern.id));
+    }, 12500);
+  };
+
+  // 8. Handle Open Khongkha Blessing Modal
+  const handleOpenKhongkhaBlessing = (k: Krathong) => {
+    setBlessingKrathong(k);
+    setIsKhongkhaModalOpen(true);
+  };
+
+  // 9. Party Filter & Pond Krathongs
+  const [focusPartyOnly, setFocusPartyOnly] = useState<boolean>(false);
+
+  const partyKrathongsCount = useMemo(() => {
+    if (!activePartyCode) return 0;
+    return allKrathongsDatabase.filter((k) => k.party_code === activePartyCode).length;
+  }, [allKrathongsDatabase, activePartyCode]);
+
+  const filteredKrathongs = useMemo(() => {
+    let list = pondKrathongs;
+    if (activePartyCode && focusPartyOnly) {
+      list = list.filter((k) => k.party_code === activePartyCode);
+    } else if (selectedCategory !== 'all') {
+      list = list.filter((k) => k.wish_category === selectedCategory);
+    }
+    return list;
+  }, [pondKrathongs, selectedCategory, activePartyCode, focusPartyOnly]);
+
+  // Responsive check for mobile vs desktop spacing
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Natural River Flow & Gentle Drift Downstream:
+  // Krathongs stay in the water for an extended, relaxing time.
+  // Old items drift downstream peacefully with 9s animation, but NEVER get deleted from allKrathongsDatabase (Search & My Krathongs keep everything!)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const maxAllowed = isMobile ? 22 : 36;
+      if (filteredKrathongs.length > maxAllowed) {
+        const myIds = new Set(getMyKrathongIds());
+        const candidate = [...filteredKrathongs]
+          .reverse()
+          .find(
+            (k) =>
+              k.id !== focusedKrathongId &&
+              k.id !== newlyCreatedKrathong?.id &&
+              !myIds.has(k.id) &&
+              (!activePartyCode || k.party_code !== activePartyCode) &&
+              !driftingAwayIds.has(k.id)
+          );
+
+        if (candidate) {
+          setDriftingAwayIds((prev) => {
+            const next = new Set(prev);
+            next.add(candidate.id);
+            return next;
+          });
+          // Remove from the pond surface only after the 9-second drifting animation completes
+          // Note: never deleted from allKrathongsDatabase!
+          setTimeout(() => {
+            setPondKrathongs((prev) => prev.filter((item) => item.id !== candidate.id));
+            setDriftingAwayIds((prev) => {
+              const next = new Set(prev);
+              next.delete(candidate.id);
+              return next;
+            });
+          }, 9200);
+        }
+      }
+    }, 55000); // Check every 55 seconds to give plenty of time for krathongs to float serenely
+
+    return () => clearInterval(interval);
+  }, [filteredKrathongs, isMobile, focusedKrathongId, newlyCreatedKrathong, driftingAwayIds, activePartyCode]);
+
+  // Visible Krathongs with Collision Avoidance & Depth Staggering (Anti-Overlap Physics)
+  const visibleKrathongs = useMemo(() => {
+    // 15 on mobile, 24 on desktop to keep the water serene and breathable
+    const limit = isMobile ? 15 : 24;
+    const baseList = filteredKrathongs.slice(0, limit);
+    return relaxKrathongPositions(baseList, isMobile);
+  }, [filteredKrathongs, isMobile]);
+
+  return (
+    <div className="relative w-screen h-[100dvh] overflow-hidden bg-rmutk-midnight text-rmutk-ivory select-none flex flex-col font-thai">
+      {/* 1. IMMERSIVE FULL-SCREEN POND BACKGROUND WITH INTERACTIVE WATER RIPPLES */}
+      <div
+        className="absolute inset-0 z-0 cursor-pointer"
+        onClick={handlePondClick}
+      >
+        <PondScene timeOfDay={timeOfDay}>
+          {/* Interactive Touch Water Ripples */}
+          {touchRipples.map((rip) => (
+            <div
+              key={rip.id}
+              className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-300/70 bg-amber-400/15 animate-waterTouchRipple"
+              style={{
+                left: `${rip.x}px`,
+                top: `${rip.y}px`,
+                width: '64px',
+                height: '64px',
+              }}
+            />
+          ))}
+
+          {/* Released Sky Lanterns Ascending into the Night Sky (Gen-Z Aesthetic Yee Peng Glow) */}
+          {releasedLanterns.map((lan) => (
+            <div
+              key={lan.id}
+              className="absolute pointer-events-none z-20 animate-lanternAscend flex flex-col items-center"
+              style={{
+                left: `${lan.x}%`,
+                bottom: '18%',
+              }}
+            >
+              {/* Authentic Glowing Yee Peng Lantern Silhouette */}
+              <div className="relative flex flex-col items-center filter drop-shadow-[0_0_28px_rgba(251,191,36,0.9)]">
+                <div className="w-16 h-22 sm:w-20 sm:h-26 bg-gradient-to-t from-amber-500 via-amber-300 to-amber-100 rounded-t-3xl rounded-b-md border border-amber-300/80 shadow-[0_0_35px_rgba(251,191,36,0.85)] flex flex-col items-center justify-center p-2 text-center overflow-hidden relative">
+                  {/* Inner ambient flame pulse */}
+                  <div className="absolute bottom-2 w-7 h-7 bg-amber-200/90 rounded-full blur-md animate-pulse" />
+                  <div className="absolute bottom-3 w-2 h-2 bg-white rounded-full blur-[1px] animate-ping" />
+                  
+                  {/* Subtle wish snippet inscribed on rice paper */}
+                  <p className="relative z-10 text-[10px] sm:text-[11px] text-slate-950 font-bold leading-tight font-thai line-clamp-3 px-1">
+                    {lan.wish}
+                  </p>
+                </div>
+                {/* Bamboo base rim */}
+                <div className="w-9 h-1.5 bg-amber-800 rounded-full mt-0.5 shadow-sm" />
+              </div>
+
+              {/* Legible Frosted Glass Wish Tag (อ่านง่าย ไม่บัง ไม่โดนตัดสั้น) */}
+              <div className="mt-2 max-w-[220px] bg-slate-900/85 backdrop-blur-md px-3 py-1 rounded-full border border-amber-300/40 text-[11px] sm:text-xs text-amber-100 font-medium text-center shadow-lg truncate">
+                {lan.sender}: {lan.wish}
+              </div>
+            </div>
+          ))}
+
+          {/* Floating Krathongs with Natural River Current Flow */}
+          {visibleKrathongs.map((k) => (
+            <KrathongFloatingItem
+              key={k.id}
+              krathong={k}
+              onClick={(item) => setSelectedKrathong(item)}
+              isFocused={focusedKrathongId === k.id}
+              isDriftingAway={driftingAwayIds.has(k.id)}
+              isPartyMatch={Boolean(activePartyCode && k.party_code === activePartyCode)}
+              isNewlyFloated={
+                justLaunchedId === k.id ||
+                Boolean(newlyCreatedKrathong && newlyCreatedKrathong.id === k.id)
+              }
+            />
+          ))}
+        </PondScene>
+      </div>
+
+      {/* 2. MINIMALIST FLOATING TOP CONTROLS (CLEAN SKY & STANDARDIZED GEN-Z CAPSULE) */}
+      <header className="relative z-20 flex items-center justify-end px-3.5 sm:px-6 py-2.5 sm:py-3 pointer-events-none">
+        {/* Top Right Quick Actions: Standardized Translucent Glass Capsule */}
+        <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+          {/* Search */}
+          <button
+            type="button"
+            onClick={() => {
+              setSearchDrawerInitialTab('search');
+              setIsSearchDrawerOpen(true);
+            }}
+            className="h-9 px-3 rounded-full hover:bg-white/10 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
+            aria-label="ค้นหากระทง"
+          >
+            <Search className="w-4 h-4 text-slate-300" />
+            <span>ค้นหา</span>
+          </button>
+
+          {/* My Krathongs */}
+          <button
+            type="button"
+            onClick={() => {
+              setSearchDrawerInitialTab('my-krathongs');
+              setIsSearchDrawerOpen(true);
+            }}
+            className="h-9 px-3 rounded-full hover:bg-white/10 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
+            aria-label="กระทงของฉัน"
+          >
+            <User className="w-4 h-4 text-amber-300" />
+            <span>ของฉัน</span>
+          </button>
+
+          {/* Stats */}
+          <button
+            type="button"
+            onClick={() => {
+              setSearchDrawerInitialTab('stats');
+              setIsSearchDrawerOpen(true);
+            }}
+            className="w-9 h-9 rounded-full hover:bg-white/10 text-slate-300 hover:text-white flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+            title="สถิติสระน้ำ"
+            aria-label="ดูสถิติสระน้ำ"
+          >
+            <BarChart3 className="w-4 h-4" />
+          </button>
+
+          {/* Font Size Toggle */}
+          <button
+            type="button"
+            onClick={handleToggleFontSize}
+            className="w-9 h-9 rounded-full hover:bg-white/10 text-amber-300 text-xs font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+            title="ปรับขนาดตัวอักษร"
+            aria-label="ปรับขนาดตัวอักษร"
+          >
+            {fontSize === 'large' ? 'ก+' : 'ก'}
+          </button>
+        </div>
+      </header>
+
+      {/* 3. SUBTLE FLOATING CATEGORY FILTER PILLS (STANDARDIZED GEN-Z TABS - NO SCROLLBAR) */}
+      <div className="relative z-20 flex justify-center px-2 sm:px-3 py-1 pointer-events-auto">
+        <div className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.35)] max-w-full overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {[
+            { id: 'all' as const, label: 'ทั้งหมด' },
+            { id: 'study' as const, label: 'เรื่องเรียน' },
+            { id: 'career' as const, label: 'การงาน' },
+            { id: 'love' as const, label: 'ความรัก' },
+            { id: 'health' as const, label: 'ปล่อยจอย' },
+          ].map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`h-8 sm:h-9 px-3 sm:px-4 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center justify-center flex-shrink-0 cursor-pointer ${
+                  isSelected
+                    ? 'bg-amber-400/90 text-slate-950 font-bold shadow-md shadow-amber-500/25 border border-amber-300/40'
+                    : 'text-slate-300/90 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Spacer to push floating dock to bottom */}
+      <div className="flex-1" />
+
+      {/* 4. GEN-Z FLOATING ACTION DOCK AT BOTTOM (BALANCED & STANDARDIZED SIZES) */}
+      <div className="relative z-20 flex flex-col items-center pb-4 sm:pb-6 px-3 sm:px-4 pointer-events-none pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
+        {/* Active Party Squad Pill */}
+        {activePartyCode && (
+          <div className="text-xs text-cyan-200 bg-slate-900/70 backdrop-blur-2xl px-3.5 py-1.5 rounded-full border border-cyan-400/30 pointer-events-auto shadow-lg flex items-center gap-2 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span>ลอยกับเพื่อนในกลุ่ม ({partyKrathongsCount} ใบ)</span>
+            <button
+              type="button"
+              onClick={() => setFocusPartyOnly(!focusPartyOnly)}
+              className="ml-1 px-2.5 py-0.5 rounded-full bg-cyan-400/20 hover:bg-cyan-400/30 text-cyan-200 text-[11px] font-semibold transition-colors cursor-pointer"
+            >
+              {focusPartyOnly ? 'ดูทั้งสระ' : 'ดูกลุ่มนี้'}
+            </button>
+          </div>
+        )}
+
+        {/* Primary Hero Action: ปล่อยกระทง (Clean Text, No Emojis, Standard Height) */}
+        <div className="pointer-events-auto w-full max-w-xs sm:max-w-sm flex justify-center">
+          <button
+            type="button"
+            onClick={() => setIsCustomizerOpen(true)}
+            className="w-full h-11 sm:h-12 px-8 rounded-full font-bold text-sm sm:text-base bg-gradient-to-r from-amber-400/90 via-amber-300/90 to-amber-400/90 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-200/50 shadow-[0_4px_24px_rgba(251,191,36,0.35)] active:scale-95 transition-all flex items-center justify-center cursor-pointer tracking-wide"
+          >
+            <span>ปล่อยกระทง</span>
+          </button>
+        </div>
+
+        {/* Secondary Actions: Sleek Unified Frosted Glass Capsule (Clean Text Only, No Emojis, Equal Standard Size!) */}
+        <div className="pointer-events-auto w-full max-w-md sm:max-w-lg flex items-center justify-center p-1 sm:p-1.5 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] gap-1 sm:gap-1.5">
+          {/* 1. ปล่อยโคม */}
+          <button
+            type="button"
+            onClick={() => setIsLanternModalOpen(true)}
+            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          >
+            <span className="whitespace-nowrap">ปล่อยโคม</span>
+          </button>
+
+          {/* 2. พรพระแม่ */}
+          <button
+            type="button"
+            onClick={() => {
+              if (newlyCreatedKrathong) {
+                handleOpenKhongkhaBlessing(newlyCreatedKrathong);
+              } else if (allKrathongsDatabase.length > 0) {
+                handleOpenKhongkhaBlessing(allKrathongsDatabase[0]);
+              } else {
+                setNotification('สร้างกระทงของคุณเพื่อรับโองการประสาทพรจากพระแม่คงคา');
+                setIsCustomizerOpen(true);
+              }
+            }}
+            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          >
+            <span className="whitespace-nowrap">พรพระแม่</span>
+          </button>
+
+          {/* 3. ชวนเพื่อน */}
+          <button
+            type="button"
+            onClick={() => setIsInviteModalOpen(true)}
+            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          >
+            <span className="whitespace-nowrap">ชวนเพื่อน</span>
+          </button>
+
+          {/* 4. เซียมซี */}
+          <button
+            type="button"
+            onClick={() => setIsFortuneOpen(true)}
+            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          >
+            <span className="whitespace-nowrap">เซียมซี</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Floating Notification Toast */}
+      {notification && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 backdrop-blur-md border border-amber-400/40 text-amber-200 text-xs sm:text-sm px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-fadeIn pointer-events-none">
+          <Bell className="w-3.5 h-3.5 text-amber-300 flex-shrink-0" />
+          <span>{notification}</span>
+        </div>
+      )}
+
+      {/* Modals & Drawers */}
+      <KrathongCustomizer
+        isOpen={isCustomizerOpen}
+        onClose={() => setIsCustomizerOpen(false)}
+        onSubmit={handleCreateKrathong}
+        initialPartyCode={activePartyCode}
+        onOpenStoryModal={(code, b, f, c, s, name) => {
+          handleOpenStoryModal(code, b, f, c, s, name);
+        }}
+      />
+
+      <InviteFriendsModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onStartCustomizerWithParty={(code) => {
+          setActivePartyCode(code);
+          try {
+            localStorage.setItem('party_host_' + code, 'true');
+          } catch {}
+          setIsGroupWaitingHost(true);
+          setIsCustomizerOpen(true);
+        }}
+        onOpenStoryModal={(code) => {
+          handleOpenStoryModal(code);
+        }}
+      />
+
+      <InviteStoryModal
+        isOpen={isStoryModalOpen}
+        onClose={() => setIsStoryModalOpen(false)}
+        partyCode={storyParams.partyCode}
+        base={storyParams.base}
+        flower={storyParams.flower}
+        candle={storyParams.candle}
+        sacredItems={storyParams.sacredItems}
+        hostName={storyParams.hostName}
+      />
+
+      <GroupWaitingModal
+        isOpen={isGroupWaitingOpen}
+        onClose={() => setIsGroupWaitingOpen(false)}
+        partyCode={groupWaitingPartyCode}
+        isHost={isGroupWaitingHost}
+        myKrathong={newlyCreatedKrathong}
+        allPartyKrathongs={allKrathongsDatabase}
+        onLaunchAll={handleGroupLaunchAll}
+        onOpenStoryModal={() => {
+          if (newlyCreatedKrathong) {
+            handleOpenStoryModal(
+              groupWaitingPartyCode,
+              newlyCreatedKrathong.base_type,
+              newlyCreatedKrathong.flower_type,
+              newlyCreatedKrathong.candle_type,
+              newlyCreatedKrathong.sacred_items || [],
+              newlyCreatedKrathong.sender_name
+            );
+          } else {
+            handleOpenStoryModal(groupWaitingPartyCode);
+          }
+        }}
+      />
+
+      <SkyLanternModal
+        isOpen={isLanternModalOpen}
+        onClose={() => setIsLanternModalOpen(false)}
+        onReleaseLantern={handleReleaseLantern}
+      />
+
+      <KrathongDetailModal
+        krathong={selectedKrathong}
+        onClose={() => {
+          setSelectedKrathong(null);
+          setFocusedKrathongId(null);
+        }}
+        onBless={handleBless}
+        onOpenKhongkhaBlessing={handleOpenKhongkhaBlessing}
+      />
+
+      <FortuneModal
+        isOpen={isFortuneOpen}
+        onClose={() => setIsFortuneOpen(false)}
+      />
+
+      <SearchStatsDrawer
+        isOpen={isSearchDrawerOpen}
+        onClose={() => setIsSearchDrawerOpen(false)}
+        krathongs={allKrathongsDatabase}
+        onSelectKrathong={(k) => {
+          setSelectedKrathong(k);
+          setFocusedKrathongId(k.id);
+        }}
+        initialTab={searchDrawerInitialTab}
+      />
+
+      <WishCardModal
+        krathong={newlyCreatedKrathong}
+        isOpen={isCelebrationOpen}
+        onClose={() => setIsCelebrationOpen(false)}
+        onOpenFortune={() => setIsFortuneOpen(true)}
+        onOpenKhongkhaBlessing={handleOpenKhongkhaBlessing}
+      />
+
+      <KhongkhaBlessingModal
+        krathong={blessingKrathong}
+        isOpen={isKhongkhaModalOpen}
+        onClose={() => setIsKhongkhaModalOpen(false)}
+      />
+    </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-screen h-screen bg-rmutk-midnight flex items-center justify-center text-amber-300 text-sm">
+          <span>กำลังเปิดสระน้ำ มทร.กรุงเทพ...</span>
+        </div>
+      }
+    >
+      <LoyKrathongApp />
+    </Suspense>
+  );
+}
