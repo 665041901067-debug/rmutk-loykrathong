@@ -360,6 +360,12 @@ function LoyKrathongApp() {
             : 'กระทงของคุณลงไปลอยในสระน้ำ มทร.กรุงเทพ แล้ว';
         setNotification(msg);
         setTimeout(() => setNotification(null), 4500);
+
+        // Auto-clear focus and highlight pulse after 4.5s so the water returns to clean, serene beauty
+        setTimeout(() => {
+          setJustLaunchedId((current) => (current === created.id ? null : current));
+          setFocusedKrathongId((current) => (current === created.id ? null : current));
+        }, 4500);
       }
     }
     return result;
@@ -372,9 +378,14 @@ function LoyKrathongApp() {
     // 2. Close waiting room modal
     setIsGroupWaitingOpen(false);
 
-    // 3. Highlight newly launched krathong
+    // 3. Highlight newly launched krathong briefly (4.5s) then fade away cleanly
     setFocusedKrathongId(newlyCreatedKrathong?.id || null);
     setJustLaunchedId(newlyCreatedKrathong?.id || 'party-' + groupWaitingPartyCode);
+
+    setTimeout(() => {
+      setJustLaunchedId(null);
+      setFocusedKrathongId(null);
+    }, 4500);
 
     // 4. Reload krathongs so all members in this party are visible in the pond!
     loadData();
@@ -603,10 +614,7 @@ function LoyKrathongApp() {
               isFocused={focusedKrathongId === k.id}
               isDriftingAway={driftingAwayIds.has(k.id)}
               isPartyMatch={Boolean(activePartyCode && k.party_code === activePartyCode)}
-              isNewlyFloated={
-                justLaunchedId === k.id ||
-                Boolean(newlyCreatedKrathong && newlyCreatedKrathong.id === k.id)
-              }
+              isNewlyFloated={justLaunchedId === k.id}
             />
           ))}
         </PondScene>

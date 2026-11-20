@@ -5,12 +5,28 @@ import { supabase, isDemoMode } from './supabase';
 
 const BROADCAST_CHANNEL_NAME = 'rmutk_party_sync';
 const LAUNCH_KEY_PREFIX = 'rmutk_party_launch_';
-const MEMBER_KEY_PREFIX = 'rmutk_party_members_';
 
 export interface PartyLaunchPayload {
   partyCode: string;
   hostName?: string;
   timestamp: number;
+}
+
+// Registry to keep party channels alive and reuse established WebSocket connections
+const partyChannelRegistry = new Map<string, any>();
+
+function getOrCreatePartyChannel(partyCode: string) {
+  if (!partyCode || isDemoMode() || !supabase) return null;
+  if (!partyChannelRegistry.has(partyCode)) {
+    const ch = supabase.channel(`party_room_${partyCode}`, {
+      config: {
+        broadcast: { ack: true, self: true },
+        presence: { key: partyCode },
+      },
+    });
+    partyChannelRegistry.set(partyCode, ch);
+  }
+  return partyChannelRegistry.get(partyCode);
 }
 
 /**
@@ -24,7 +40,7 @@ export function broadcastPartyLaunch(partyCode: string, hostName?: string): void
     timestamp: Date.now(),
   };
 
-  // 1. BroadcastChannel (Native Cross-Tab Sync ใน Browser เดียวกัน ทันทีระดับ ms)
+  // 1. Native BroadcastChannel (Cross-tab in same browser)
   if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
     try {
       const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
@@ -35,37 +51,45 @@ export function broadcastPartyLaunch(partyCode: string, hostName?: string): void
     }
   }
 
-  // 2. LocalStorage Event (Cross-Window / Cross-Tab Storage Event)
+  // 2. LocalStorage Event (Cross-window & Persistence)
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(`${LAUNCH_KEY_PREFIX}${partyCode}`, JSON.stringify(payload));
       localStorage.setItem('rmutk_party_event_ping', Date.now().toString());
+      window.dispatchEvent(new CustomEvent('rmutk_party_launch', { detail: payload }));
     } catch (err) {
       console.warn('LocalStorage party event error:', err);
     }
   }
 
-  // 3. Supabase Realtime Broadcast (ข้ามเครื่อง ข้ามเน็ตเวิร์ก)
+  // 3. Supabase Realtime Broadcast & Presence State (Cross-device / Mobile phones / Internet)
   if (!isDemoMode() && supabase) {
-    try {
-      const channel = supabase.channel(`party_${partyCode}`);
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          channel.send({
+    const sendPulse = () => {
+      try {
+        const ch = getOrCreatePartyChannel(partyCode);
+        if (ch) {
+          ch.send({
             type: 'broadcast',
             event: 'group_launch',
             payload,
           });
+          ch.track({ partyCode, isLaunched: true, launchedAt: Date.now() });
         }
-      });
-    } catch (err) {
-      console.warn('Supabase party broadcast error:', err);
-    }
+      } catch (err) {
+        console.warn('Party broadcast pulse error:', err);
+      }
+    };
+
+    // Send immediately and retry 3 times to ensure zero packet drop across mobile connections
+    sendPulse();
+    setTimeout(sendPulse, 400);
+    setTimeout(sendPulse, 1000);
+    setTimeout(sendPulse, 2200);
   }
 }
 
 /**
- * สมัครรับฟังเหตุการณ์ปล่อยกระทงพร้อมกันในก๊วน
+ * สมัครรับฟังเหตุการณ์ปล่อยกระทงพร้อมกันในก๊วน (ข้ามอุปกรณ์ & ข้ามบราวเซอร์)
  */
 export function subscribePartyLaunch(
   partyCode: string,
@@ -81,20 +105,27 @@ export function subscribePartyLaunch(
     onLaunch(payload);
   };
 
-  // ตรวจสอบสถานะทันทีว่ามีคำสั่งปล่อยลอยค้างอยู่หรือไม่ (ไม่เกิน 20 วินาที)
+  // 1. ตรวจสอบสถานะทันทีว่าห้องนี้ถูกสั่งปล่อยไปแล้วหรือยัง
   try {
     const existing = localStorage.getItem(`${LAUNCH_KEY_PREFIX}${partyCode}`);
     if (existing) {
       const parsed = JSON.parse(existing) as PartyLaunchPayload;
-      if (Date.now() - parsed.timestamp < 20000) {
+      if (Date.now() - parsed.timestamp < 30000) {
         triggerOnce(parsed);
       }
     }
-  } catch {
-    // Ignore
-  }
+  } catch {}
 
-  // 1. ฟังจาก BroadcastChannel
+  // 2. Window Custom Event (Direct in-page event)
+  const handleCustomEvent = (e: Event) => {
+    const detail = (e as CustomEvent).detail as PartyLaunchPayload;
+    if (detail?.partyCode === partyCode) {
+      triggerOnce(detail);
+    }
+  };
+  window.addEventListener('rmutk_party_launch', handleCustomEvent);
+
+  // 3. ฟังจาก BroadcastChannel (ข้ามแท็บในเครื่องเดียวกัน)
   let bc: BroadcastChannel | null = null;
   if ('BroadcastChannel' in window) {
     try {
@@ -109,7 +140,7 @@ export function subscribePartyLaunch(
     }
   }
 
-  // 2. ฟังจาก Storage Event (เมื่อ Tab อื่นอัปเดต LocalStorage)
+  // 4. ฟังจาก Storage Event
   const handleStorage = (e: StorageEvent) => {
     if (e.key === `${LAUNCH_KEY_PREFIX}${partyCode}` && e.newValue) {
       try {
@@ -123,57 +154,68 @@ export function subscribePartyLaunch(
         const item = localStorage.getItem(`${LAUNCH_KEY_PREFIX}${partyCode}`);
         if (item) {
           const parsed = JSON.parse(item) as PartyLaunchPayload;
-          if (Date.now() - parsed.timestamp < 15000) {
+          if (Date.now() - parsed.timestamp < 25000) {
             triggerOnce(parsed);
           }
         }
-      } catch {
-        // Ignore
-      }
+      } catch {}
     }
   };
   window.addEventListener('storage', handleStorage);
 
-  // 3. Fallback Polling ตรวจสอบ LocalStorage ทุกๆ 1 วินาที
+  // 5. Supabase Realtime (Broadcast + Presence sync ข้ามเครื่อง/มือถือ)
+  let sbChannel: any = null;
+  if (!isDemoMode() && supabase) {
+    try {
+      sbChannel = getOrCreatePartyChannel(partyCode);
+      if (sbChannel) {
+        sbChannel
+          .on('broadcast', { event: 'group_launch' }, (msg: any) => {
+            if (msg.payload?.partyCode === partyCode) {
+              triggerOnce(msg.payload);
+            }
+          })
+          .on('presence', { event: 'sync' }, () => {
+            try {
+              const state = sbChannel.presenceState();
+              for (const key of Object.keys(state)) {
+                const list = state[key] as any[];
+                if (list?.some((p) => p.isLaunched && p.partyCode === partyCode)) {
+                  triggerOnce({ partyCode, timestamp: Date.now() });
+                }
+              }
+            } catch {}
+          })
+          .subscribe((status: string) => {
+            if (status === 'SUBSCRIBED') {
+              sbChannel.track({ partyCode, joinedAt: Date.now() });
+            }
+          });
+      }
+    } catch (err) {
+      console.warn('Supabase subscribe error:', err);
+    }
+  }
+
+  // 6. Polling check ทุกๆ 750ms เพื่อความแน่นอนสูงสุด
   const pollInterval = setInterval(() => {
     try {
       const current = localStorage.getItem(`${LAUNCH_KEY_PREFIX}${partyCode}`);
       if (current) {
         const parsed = JSON.parse(current) as PartyLaunchPayload;
-        if (Date.now() - parsed.timestamp < 15000) {
+        if (Date.now() - parsed.timestamp < 25000) {
           triggerOnce(parsed);
         }
       }
-    } catch {
-      // Ignore
-    }
-  }, 1000);
-
-  // 4. Supabase Realtime Broadcast Listener
-  let sbChannel: any = null;
-  if (!isDemoMode() && supabase) {
-    try {
-      sbChannel = supabase
-        .channel(`party_${partyCode}`)
-        .on('broadcast', { event: 'group_launch' }, (msg: any) => {
-          if (msg.payload?.partyCode === partyCode) {
-            triggerOnce(msg.payload);
-          }
-        })
-        .subscribe();
-    } catch {
-      sbChannel = null;
-    }
-  }
+    } catch {}
+  }, 750);
 
   // คืนค่าฟังก์ชันยกเลิกการสมัคร
   return () => {
-    if (bc) bc.close();
+    window.removeEventListener('rmutk_party_launch', handleCustomEvent);
     window.removeEventListener('storage', handleStorage);
     clearInterval(pollInterval);
-    if (sbChannel && supabase) {
-      supabase.removeChannel(sbChannel);
-    }
+    if (bc) bc.close();
   };
 }
 
@@ -187,15 +229,23 @@ export function broadcastMemberJoined(partyCode: string, krathong: Krathong): vo
       const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
       bc.postMessage({ type: 'MEMBER_JOINED', partyCode, krathong });
       setTimeout(() => bc.close(), 1000);
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('rmutk_party_member_ping', `${partyCode}_${Date.now()}`);
-    } catch {
-      // Ignore
-    }
+    } catch {}
+  }
+  if (!isDemoMode() && supabase) {
+    try {
+      const ch = getOrCreatePartyChannel(partyCode);
+      if (ch) {
+        ch.send({
+          type: 'broadcast',
+          event: 'member_joined',
+          payload: { partyCode, member: krathong },
+        });
+      }
+    } catch {}
   }
 }
