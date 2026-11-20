@@ -83,27 +83,24 @@ export function mapRowToKrathong(row: Record<string, unknown>): Krathong {
   const cat = THAI_TO_CATEGORY[rawCat] || (['study', 'career', 'love', 'health'].includes(rawCat) ? (rawCat as WishCategory) : 'study');
 
   const rawFaculty = String(row.faculty || 'บุคคลทั่วไป');
-  const metaMatch = rawFaculty.match(/\[b:([^|]*)\|c:([^|]*)(?:\|s:([^|]*))?(?:\|p:([^|\]]*))?(?:\|t:([^\]]*))?\]/);
+  const bMatch = rawFaculty.match(/\[.*?\bb:([^|\]]+)/);
+  const cMatch = rawFaculty.match(/\[.*?\bc:([^|\]]+)/);
+  const sMatch = rawFaculty.match(/\[.*?\bs:([^|\]]+)/);
+  const pMatch = rawFaculty.match(/\[.*?\bp:([^|\]]+)/);
+  const tMatch = rawFaculty.match(/\[.*?\bt:([^|\]]+)/);
 
-  let base_type: KrathongBase = (row.krathong_base || row.base_type || 'banana-leaf') as KrathongBase;
-  let candle_type: CandleSet = (row.candle_type || 'traditional') as CandleSet;
-  let sacred_items: SacredItem[] = [];
-  let party_code: string | undefined = undefined;
-  let party_time: string | undefined = undefined;
-  let cleanFaculty = rawFaculty;
+  let base_type: KrathongBase = (bMatch ? bMatch[1] : row.krathong_base || row.base_type || 'banana-leaf') as KrathongBase;
+  let candle_type: CandleSet = (cMatch ? cMatch[1] : row.candle_type || 'traditional') as CandleSet;
+  let sacred_items: SacredItem[] = sMatch ? (sMatch[1].split(',').filter(Boolean) as SacredItem[]) : [];
+  let party_code: string | undefined = pMatch ? pMatch[1] : (row.party_code ? String(row.party_code) : undefined);
+  let party_time: string | undefined = tMatch ? tMatch[1] : (row.party_time ? String(row.party_time) : undefined);
+  let cleanFaculty = rawFaculty.replace(/\[.*\]/, '').trim();
 
-  if (metaMatch) {
-    cleanFaculty = rawFaculty.replace(/\[b:.*\]/, '').trim();
-    if (metaMatch[1]) base_type = metaMatch[1] as KrathongBase;
-    if (metaMatch[2]) candle_type = metaMatch[2] as CandleSet;
-    if (metaMatch[3]) sacred_items = metaMatch[3].split(',').filter(Boolean) as SacredItem[];
-    if (metaMatch[4]) party_code = metaMatch[4];
-    if (metaMatch[5]) party_time = metaMatch[5];
-  } else {
-    // Fallback checking from legacy wish tags if present
+  // Fallback checking from legacy wish tags if present
+  if (!party_code) {
     const rawWishText = String(row.wish || '');
     const sacredMatch = rawWishText.match(/<!--sacred:(.*?)-->/);
-    if (sacredMatch) {
+    if (sacredMatch && sacred_items.length === 0) {
       sacred_items = sacredMatch[1].split(',').filter(Boolean) as SacredItem[];
     }
     const partyMatch = rawWishText.match(/<!--party:(.*?)(?:\|time:(.*?))?-->/);
@@ -277,19 +274,18 @@ export async function createKrathong(input: KrathongInput): Promise<{ success: b
     const dbBase = ALLOWED_DB_BASES.includes(input.base_type) ? input.base_type : 'banana-leaf';
     const dbCandle = ALLOWED_DB_CANDLES.includes(input.candle_type) ? input.candle_type : 'traditional';
 
-    // บันทึก Metadata พิเศษ (ฐานคณะ, เทียน, ของสะเดาะเคราะห์, ก๊วน) ไว้ในช่อง faculty
-    const metaParts: string[] = [
-      `b:${input.base_type}`,
-      `c:${input.candle_type}`,
-    ];
-    if (input.sacred_items && input.sacred_items.length > 0) {
-      metaParts.push(`s:${input.sacred_items.join(',')}`);
-    }
+    // บันทึก Metadata พิเศษ (ก๊วนเพื่อนนำหน้าเพื่อความปลอดภัยสูงสุด, ฐานคณะ, เทียน, ของสะเดาะเคราะห์)
+    const metaParts: string[] = [];
     if (input.party_code) {
       metaParts.push(`p:${input.party_code}`);
       if (input.party_time) {
         metaParts.push(`t:${input.party_time}`);
       }
+    }
+    metaParts.push(`b:${input.base_type}`);
+    metaParts.push(`c:${input.candle_type}`);
+    if (input.sacred_items && input.sacred_items.length > 0) {
+      metaParts.push(`s:${input.sacred_items.join(',')}`);
     }
     const metaTag = `[${metaParts.join('|')}]`;
     const cleanFaculty = (input.faculty || 'บุคคลทั่วไป').trim();

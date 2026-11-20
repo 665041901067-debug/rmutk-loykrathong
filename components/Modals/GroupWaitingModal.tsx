@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Krathong } from '@/types';
 import { KrathongSVG } from '../Krathong/KrathongSVG';
 import { sound } from '@/lib/sound';
@@ -37,8 +37,14 @@ export const GroupWaitingModal: React.FC<GroupWaitingModalProps> = ({
     isHost ||
     (typeof window !== 'undefined' && localStorage.getItem('party_host_' + partyCode) === 'true');
 
-  // Filter or construct members in this party
-  const partyMembers = allPartyKrathongs.filter((k) => k.party_code === partyCode);
+  // Filter or construct members in this party (reactive merge with own krathong)
+  const partyMembers = useMemo(() => {
+    const list = allPartyKrathongs.filter((k) => k.party_code === partyCode);
+    if (myKrathong && myKrathong.party_code === partyCode && !list.some((k) => k.id === myKrathong.id)) {
+      list.push(myKrathong);
+    }
+    return list;
+  }, [allPartyKrathongs, partyCode, myKrathong]);
   const totalCount = Math.max(1, partyMembers.length);
   const prayedCount = partyMembers.filter((k) => Boolean(k.wish)).length;
 

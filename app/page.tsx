@@ -309,6 +309,21 @@ function LoyKrathongApp() {
     };
   }, [loadData]);
 
+  // 3.2 Real-time Active Member Polling while GroupWaitingModal is Open (Instant Sync for Host & Joiners)
+  useEffect(() => {
+    if (!isGroupWaitingOpen) return;
+
+    // Immediately fetch latest members upon opening
+    loadData();
+
+    // Fast polling every 1.5s while waiting room is open so newly joined friends appear immediately without manual refresh
+    const pollInterval = setInterval(() => {
+      loadData();
+    }, 1500);
+
+    return () => clearInterval(pollInterval);
+  }, [isGroupWaitingOpen, loadData]);
+
   // 4. Handle Create Krathong
   const handleCreateKrathong = async (input: KrathongInput) => {
     const result = await createKrathong(input);

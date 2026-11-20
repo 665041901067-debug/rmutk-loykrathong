@@ -1215,9 +1215,9 @@ export const PondScene: React.FC<PondSceneProps> = ({ timeOfDay, children }) => 
 
         {/* ========================================================
             LAYER 1.5 (MOBILE): THAI SKY LANTERNS IN CELESTIAL FORMATION
-            (โคมลอยยี่เป็งแปรอักษร "ลอยกระทง มทร.กรุงเทพ" บนจอมือถือ - พ้นปุ่มหมวดหมู่)
+            (โคมลอยยี่เป็งแปรอักษร "ลอยกระทง มทร.กรุงเทพ" บนจอมือถือ - อยู่ใต้ปุ่มหมวดหมู่ ไม่โดนบัง 100%)
            ======================================================== */}
-        <g id="sky-lantern-formation-mob" transform="translate(130, 175)" opacity={theme.lanternsOpacity}>
+        <g id="sky-lantern-formation-mob" transform="translate(112, 265) scale(0.92)" opacity={theme.lanternsOpacity}>
           <g className="animate-pulse">
             {/* Ambient Warm Golden Starlight Glow */}
             <ellipse cx="0" cy="14" rx="100" ry="34" fill="url(#lanternGlowMob)" opacity="0.4" />

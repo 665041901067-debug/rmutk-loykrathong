@@ -93,15 +93,20 @@ export const KrathongFloatingItem: React.FC<KrathongFloatingItemProps> = memo(
           />
         </div>
 
-        {/* Hover / Focus Tooltip (ป้ายชื่อ & คำอธิษฐานเรืองแสง) */}
-        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 hidden group-hover:flex group-focus:flex flex-col items-center z-40 animate-fadeIn min-w-[130px] max-w-[220px]">
-          <div className="bg-slate-900/90 backdrop-blur-2xl border border-amber-300/30 text-white text-xs px-3.5 py-1.5 rounded-2xl shadow-2xl flex flex-col items-center text-center">
-            <div className="flex items-center gap-1.5 font-semibold text-amber-300 text-xs">
-              <span className="truncate max-w-[130px]">{displayName}</span>
-              <span className="text-slate-400 text-[10px] font-normal">({krathong.faculty})</span>
+        {/* Hover / Focus Tooltip (ป้ายชื่อ & คำอธิษฐานเรืองแสง - แสดงชื่อเต็ม ไม่โดนตัดสั้น) */}
+        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 hidden group-hover:flex group-focus:flex flex-col items-center z-40 animate-fadeIn min-w-[150px] max-w-[280px] w-max">
+          <div className="bg-slate-900/95 backdrop-blur-2xl border border-amber-300/35 text-white text-xs px-3.5 py-2 rounded-2xl shadow-2xl flex flex-col items-center text-center">
+            {/* Full Sender Name */}
+            <div className="font-bold text-amber-300 text-xs sm:text-sm leading-tight break-words [overflow-wrap:anywhere]">
+              {displayName}
             </div>
+            {/* Faculty Subtitle */}
+            <div className="text-slate-300/90 text-[10px] sm:text-[11px] font-medium mt-0.5 break-words">
+              {krathong.faculty}
+            </div>
+            {/* Wish snippet */}
             {krathong.wish && (
-              <p className="text-[11px] text-amber-100/90 mt-0.5 line-clamp-2 break-words [overflow-wrap:anywhere] break-all leading-snug drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">
+              <p className="text-[11px] text-amber-100/90 mt-1 line-clamp-2 break-words [overflow-wrap:anywhere] break-all leading-snug drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">
                 “{krathong.wish}”
               </p>
             )}
