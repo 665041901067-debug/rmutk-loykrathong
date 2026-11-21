@@ -12,8 +12,17 @@ export interface PartyLaunchPayload {
   timestamp: number;
 }
 
+export interface SkyLanternPayload {
+  id: string;
+  sender: string;
+  wish: string;
+  x: number;
+  timestamp: number;
+}
+
 // Registry to keep party channels alive and reuse established WebSocket connections
 const partyChannelRegistry = new Map<string, any>();
+let globalLanternChannel: any = null;
 
 function getOrCreatePartyChannel(partyCode: string) {
   if (!partyCode || isDemoMode() || !supabase) return null;
@@ -27,6 +36,119 @@ function getOrCreatePartyChannel(partyCode: string) {
     partyChannelRegistry.set(partyCode, ch);
   }
   return partyChannelRegistry.get(partyCode);
+}
+
+function getOrCreateLanternChannel() {
+  if (isDemoMode() || !supabase) return null;
+  if (!globalLanternChannel) {
+    globalLanternChannel = supabase.channel('public:sky_lanterns', {
+      config: {
+        broadcast: { ack: false, self: false },
+      },
+    });
+  }
+  return globalLanternChannel;
+}
+
+/**
+ * เผยแพร่โคมลอยแบบ Realtime ให้ผู้ใช้ทุกคนในระบบเห็นพร้อมกัน
+ */
+export function broadcastSkyLantern(lantern: { id: string; sender: string; wish: string; x: number }): void {
+  const payload: SkyLanternPayload = {
+    ...lantern,
+    timestamp: Date.now(),
+  };
+
+  // 1. Cross-tab in same browser
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    try {
+      const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+      bc.postMessage({ type: 'LANTERN_RELEASED', payload });
+      setTimeout(() => bc.close(), 1000);
+    } catch {}
+  }
+
+  // 2. Storage event
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('rmutk_sky_lantern_ping', JSON.stringify(payload));
+    } catch {}
+  }
+
+  // 3. Supabase Realtime Broadcast to all online users
+  if (!isDemoMode() && supabase) {
+    try {
+      const ch = getOrCreateLanternChannel();
+      if (ch) {
+        ch.send({
+          type: 'broadcast',
+          event: 'lantern_released',
+          payload,
+        });
+      }
+    } catch (err) {
+      console.warn('Lantern broadcast error:', err);
+    }
+  }
+}
+
+/**
+ * สมัครรับฟังเหตุการณ์โคมลอยจากผู้ใช้อื่นแบบ Realtime
+ */
+export function subscribeSkyLanterns(onLantern: (payload: SkyLanternPayload) => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  // 1. Listen via BroadcastChannel
+  let bc: BroadcastChannel | null = null;
+  if ('BroadcastChannel' in window) {
+    try {
+      bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'LANTERN_RELEASED' && event.data?.payload) {
+          onLantern(event.data.payload);
+        }
+      };
+    } catch {
+      bc = null;
+    }
+  }
+
+  // 2. Listen via LocalStorage
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === 'rmutk_sky_lantern_ping' && e.newValue) {
+      try {
+        const item = JSON.parse(e.newValue) as SkyLanternPayload;
+        if (Date.now() - item.timestamp < 15000) {
+          onLantern(item);
+        }
+      } catch {}
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  // 3. Listen via Supabase Realtime Broadcast
+  let sbChannel: any = null;
+  if (!isDemoMode() && supabase) {
+    try {
+      sbChannel = getOrCreateLanternChannel();
+      if (sbChannel) {
+        sbChannel
+          .on('broadcast', { event: 'lantern_released' }, (msg: any) => {
+            if (msg.payload && msg.payload.id) {
+              onLantern(msg.payload as SkyLanternPayload);
+            }
+          })
+          .subscribe();
+      }
+    } catch (err) {
+      console.warn('Supabase lantern subscribe error:', err);
+    }
+  }
+
+  return () => {
+    window.removeEventListener('storage', handleStorage);
+    if (bc) bc.close();
+  };
 }
 
 /**

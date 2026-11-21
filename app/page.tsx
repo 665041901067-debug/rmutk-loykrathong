@@ -41,6 +41,7 @@ import { InviteStoryModal } from '@/components/Modals/InviteStoryModal';
 import { GroupWaitingModal } from '@/components/Modals/GroupWaitingModal';
 import { SkyLanternModal } from '@/components/Modals/SkyLanternModal';
 import { KhongkhaBlessingModal } from '@/components/Modals/KhongkhaBlessingModal';
+import { TurtlePondModal } from '@/components/Modals/TurtlePondModal';
 
 // Icons
 import {
@@ -56,9 +57,15 @@ import {
   Flame,
   Droplets,
   Image as ImageIcon,
+  Coins,
   X,
 } from 'lucide-react';
-import { broadcastPartyLaunch, broadcastMemberJoined } from '@/lib/partySync';
+import {
+  broadcastPartyLaunch,
+  broadcastMemberJoined,
+  broadcastSkyLantern,
+  subscribeSkyLanterns,
+} from '@/lib/partySync';
 
 function LoyKrathongApp() {
   const searchParams = useSearchParams();
@@ -92,6 +99,7 @@ function LoyKrathongApp() {
   const [isCelebrationOpen, setIsCelebrationOpen] = useState<boolean>(false);
   const [isKhongkhaModalOpen, setIsKhongkhaModalOpen] = useState<boolean>(false);
   const [blessingKrathong, setBlessingKrathong] = useState<Krathong | null>(null);
+  const [isTurtleModalOpen, setIsTurtleModalOpen] = useState<boolean>(false);
 
   // Group Waiting Room & Story Generator Modals
   const [isGroupWaitingOpen, setIsGroupWaitingOpen] = useState<boolean>(false);
@@ -324,6 +332,25 @@ function LoyKrathongApp() {
     return () => clearInterval(pollInterval);
   }, [isGroupWaitingOpen, loadData]);
 
+  // 3.3 Real-time Sky Lanterns Sync across all connected users (โคมลอยซิงค์สด ไม่เกะกะ ไม่บั๊ก)
+  useEffect(() => {
+    const unsubscribe = subscribeSkyLanterns((incomingLantern) => {
+      setReleasedLanterns((prev) => {
+        // Prevent duplicate lanterns
+        if (prev.some((l) => l.id === incomingLantern.id)) return prev;
+        // Keep up to 6 concurrent lanterns on screen so the sky remains peaceful and clean
+        return [...prev.slice(-5), incomingLantern];
+      });
+
+      // Automatically remove when floated out of viewport (12.5s)
+      setTimeout(() => {
+        setReleasedLanterns((prev) => prev.filter((l) => l.id !== incomingLantern.id));
+      }, 12500);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // 4. Handle Create Krathong
   const handleCreateKrathong = async (input: KrathongInput) => {
     const result = await createKrathong(input);
@@ -470,7 +497,8 @@ function LoyKrathongApp() {
       wish,
       x: 18 + Math.random() * 64, // Random horizontal position 18% - 82%
     };
-    setReleasedLanterns((prev) => [...prev, newLantern]);
+    setReleasedLanterns((prev) => [...prev.slice(-5), newLantern]);
+    broadcastSkyLantern(newLantern);
     setNotification(`โคมลอยคำอธิษฐานของ "${senderName}" ลอยขึ้นสู่ท้องฟ้าแล้ว`);
     setTimeout(() => setNotification(null), 5000);
 
@@ -642,6 +670,21 @@ function LoyKrathongApp() {
               isNewlyFloated={justLaunchedId === k.id}
             />
           ))}
+
+          {/* Interactive Turtle Pond Pier Landmark (บ่อเต่าแก้เคล็ด F) */}
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsTurtleModalOpen(true);
+            }}
+            className="absolute left-[3%] sm:left-[5%] top-[45%] z-20 cursor-pointer pointer-events-auto group animate-floatSlow"
+            title="แตะเพื่อโยนเหรียญบ่อเต่าแก้เคล็ด F"
+          >
+            <div className="flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-teal-400/50 text-[10px] sm:text-xs text-teal-200 font-semibold shadow-[0_4px_16px_rgba(20,184,166,0.3)] hover:scale-105 hover:border-teal-300 transition-all">
+              <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
+              <span>บ่อเต่าแก้เคล็ด</span>
+            </div>
+          </div>
         </PondScene>
       </div>
 
@@ -764,13 +807,13 @@ function LoyKrathongApp() {
           </button>
         </div>
 
-        {/* Secondary Actions: Sleek Unified Frosted Glass Capsule (Clean Text Only, No Emojis, Equal Standard Size!) */}
-        <div className="pointer-events-auto w-full max-w-md sm:max-w-lg flex items-center justify-center p-1 sm:p-1.5 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] gap-1 sm:gap-1.5">
+        {/* Secondary Actions: Sleek Unified Frosted Glass Capsule (Clean Text Only, No Emojis, Standard Size) */}
+        <div className="pointer-events-auto w-full max-w-md sm:max-w-lg flex items-center justify-center p-1 sm:p-1.5 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] gap-1">
           {/* 1. ปล่อยโคม */}
           <button
             type="button"
             onClick={() => setIsLanternModalOpen(true)}
-            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
           >
             <span className="whitespace-nowrap">ปล่อยโคม</span>
           </button>
@@ -788,25 +831,34 @@ function LoyKrathongApp() {
                 setIsKhongkhaModalOpen(true);
               }
             }}
-            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
           >
             <span className="whitespace-nowrap">พรพระแม่</span>
           </button>
 
-          {/* 3. ชวนเพื่อน */}
+          {/* 3. บ่อเต่าแก้เคล็ด */}
+          <button
+            type="button"
+            onClick={() => setIsTurtleModalOpen(true)}
+            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-teal-200 hover:text-teal-100 hover:bg-teal-400/15 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          >
+            <span className="whitespace-nowrap">บ่อเต่า</span>
+          </button>
+
+          {/* 4. ชวนเพื่อน */}
           <button
             type="button"
             onClick={() => setIsInviteModalOpen(true)}
-            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
           >
             <span className="whitespace-nowrap">ชวนเพื่อน</span>
           </button>
 
-          {/* 4. เซียมซี */}
+          {/* 5. เซียมซี */}
           <button
             type="button"
             onClick={() => setIsFortuneOpen(true)}
-            className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
           >
             <span className="whitespace-nowrap">เซียมซี</span>
           </button>
@@ -937,6 +989,11 @@ function LoyKrathongApp() {
           setFocusedKrathongId(k.id);
           setSelectedKrathong(k);
         }}
+      />
+
+      <TurtlePondModal
+        isOpen={isTurtleModalOpen}
+        onClose={() => setIsTurtleModalOpen(false)}
       />
     </div>
   );

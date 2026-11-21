@@ -168,12 +168,12 @@ function saveLocalCustomKrathong(item: Krathong): void {
 }
 
 /**
- * ดึงรายการกระทงล่าสุดสูงสุด 30 รายการ
+ * ดึงรายการกระทงล่าสุดสูงสุด 150 รายการ (ครอบคลุมประวัติกระทงทั้งหมดในสระ)
  */
 export async function fetchLatestKrathongs(): Promise<{ krathongs: Krathong[]; isDemo: boolean }> {
   if (isDemoMode() || !supabase) {
     const customItems = getLocalCustomKrathongs();
-    const combined = [...customItems, ...DEMO_KRATHONGS].slice(0, 30);
+    const combined = [...customItems, ...DEMO_KRATHONGS].slice(0, 150);
     return { krathongs: combined, isDemo: true };
   }
 
@@ -182,12 +182,12 @@ export async function fetchLatestKrathongs(): Promise<{ krathongs: Krathong[]; i
       .from('krathongs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(30);
+      .limit(150);
 
     if (error || !data) {
       console.warn('Supabase fetch error, falling back to demo mode:', error);
       const customItems = getLocalCustomKrathongs();
-      return { krathongs: [...customItems, ...DEMO_KRATHONGS].slice(0, 30), isDemo: true };
+      return { krathongs: [...customItems, ...DEMO_KRATHONGS].slice(0, 150), isDemo: true };
     }
 
     const mapped = (data as Record<string, unknown>[]).map(mapRowToKrathong);
