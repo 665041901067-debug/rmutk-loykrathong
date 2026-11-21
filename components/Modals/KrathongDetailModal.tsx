@@ -29,8 +29,11 @@ export const KrathongDetailModal: React.FC<KrathongDetailModalProps> = ({
 
   useEffect(() => {
     if (krathong) {
-      setBlessCount(krathong.bless_count || 0);
-      setHasVoted(hasVotedKrathong(krathong.id));
+      const count = krathong.bless_count || 0;
+      setBlessCount(count);
+      // ถ้าในเครื่องเคยจำว่าโหวตแล้ว แต่ยอดจริงเป็น 0 ให้ปลดล็อกเพื่อให้กดให้ใจใหม่ได้
+      const voted = hasVotedKrathong(krathong.id);
+      setHasVoted(voted && count > 0);
       setCopied(false);
       setShowHearts(false);
     }
@@ -39,12 +42,12 @@ export const KrathongDetailModal: React.FC<KrathongDetailModalProps> = ({
   if (!krathong) return null;
 
   const handleBless = async () => {
-    if (hasVoted || isBlessing) return;
+    if (isBlessing) return;
     setIsBlessing(true);
 
     try {
       const result = await onBless(krathong.id);
-      if (result.success) {
+      if (result && result.success) {
         setHasVoted(true);
         setBlessCount(result.bless_count);
         setShowHearts(true);
@@ -197,17 +200,17 @@ export const KrathongDetailModal: React.FC<KrathongDetailModalProps> = ({
             <button
               type="button"
               onClick={handleBless}
-              disabled={hasVoted || isBlessing}
+              disabled={isBlessing}
               className={`flex-1 h-11 px-4 rounded-full font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 hasVoted
-                  ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                  : 'bg-rose-500/25 hover:bg-rose-500/35 text-rose-200 border border-rose-400/35 shadow-[0_4px_16px_rgba(244,63,94,0.15)] active:scale-95'
+                  ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30'
+                  : 'bg-rose-500/25 hover:bg-rose-500/35 text-rose-100 border border-rose-400/40 shadow-[0_4px_16px_rgba(244,63,94,0.2)] active:scale-95'
               }`}
             >
               <Heart
-                className={`w-4 h-4 ${hasVoted ? 'fill-rose-400 text-rose-400' : 'text-rose-300'}`}
+                className={`w-4 h-4 fill-rose-400 text-rose-400 ${isBlessing ? 'scale-125' : ''}`}
               />
-              <span>{hasVoted ? `ให้ใจแล้ว (${blessCount})` : `ให้ใจกระทงนี้ (${blessCount})`}</span>
+              <span>{hasVoted ? `ส่งใจเพิ่ม (${blessCount})` : `ให้ใจกระทงนี้ (${blessCount})`}</span>
             </button>
 
             {/* Close Button */}

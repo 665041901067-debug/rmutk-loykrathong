@@ -463,14 +463,22 @@ export async function blessKrathong(krathongId: string): Promise<BlessResult> {
       };
     }
 
-    // 2. Direct Update Fallback (กรณีที่ยังไม่ได้สร้างฟังก์ชัน RPC ใน Supabase)
-    const { data: curRow } = await supabase
-      .from('krathongs')
-      .select('bless_count')
-      .eq('id', krathongId)
-      .single();
+    // 2. Direct Update Fallback (กรณีที่ยังไม่ได้รันฟังก์ชัน RPC ใน Supabase)
+    let currentCount = 0;
+    try {
+      const { data: curRow } = await supabase
+        .from('krathongs')
+        .select('bless_count')
+        .eq('id', krathongId)
+        .maybeSingle();
 
-    const currentCount = typeof curRow?.bless_count === 'number' ? curRow.bless_count : 0;
+      if (typeof curRow?.bless_count === 'number') {
+        currentCount = curRow.bless_count;
+      }
+    } catch {
+      currentCount = 0;
+    }
+
     const nextCount = currentCount + 1;
 
     const { error: updateErr } = await supabase
@@ -481,6 +489,14 @@ export async function blessKrathong(krathongId: string): Promise<BlessResult> {
     if (updateErr) {
       console.warn('Direct bless update notice:', updateErr);
     }
+
+    // บันทึกลงตารางปฏิกิริยา (krathong_reactions หรือ krathong_blessings)
+    try {
+      await supabase.from('krathong_reactions').insert({
+        krathong_id: krathongId,
+        voter_id: voterId,
+      });
+    } catch {}
 
     return {
       success: true,
