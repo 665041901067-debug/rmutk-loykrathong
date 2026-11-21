@@ -117,6 +117,13 @@ module.exports = {
           '50%': { opacity: '0.6' },
           '100%': { transform: 'scale(2.6)', opacity: '0' },
         },
+        krathongWiggle: {
+          '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
+          '20%': { transform: 'translate(-3px, -2px) rotate(-3.5deg)' },
+          '40%': { transform: 'translate(3px, 1.5px) rotate(3deg)' },
+          '60%': { transform: 'translate(-2.5px, -1.5px) rotate(-2.5deg)' },
+          '80%': { transform: 'translate(2px, 2px) rotate(2deg)' },
+        },
       },
       animation: {
         float: 'riverFlow1 7s ease-in-out infinite',
@@ -132,6 +139,7 @@ module.exports = {
         lanternAscend: 'lanternAscend 12s ease-in-out forwards',
         floatInWater: 'floatInWater 1.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
         waterExpandPulse: 'waterExpandPulse 2.2s ease-out infinite',
+        krathongWiggle: 'krathongWiggle 0.45s ease-in-out infinite',
       },
     },
   },

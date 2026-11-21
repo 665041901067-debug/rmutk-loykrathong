@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FloatingMode,
   WishCategory,
@@ -16,6 +16,7 @@ import { BASES, FLOWERS, CANDLES } from '@/data/krathongOptions';
 import { KrathongSVG } from '../Krathong/KrathongSVG';
 import { validateKrathongInput } from '@/lib/validation';
 import { getRemainingCooldownSeconds } from '@/lib/storage';
+import { sound } from '@/lib/sound';
 import {
   X,
   Flame,
@@ -370,6 +371,14 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
   const [serverError, setServerError] = useState<string | null>(null);
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
 
+  // Hold-to-Pray & Float States (ลูกเล่นกดค้างอธิษฐาน & กระทงดุกดิก)
+  const [holdProgress, setHoldProgress] = useState<number>(0);
+  const [isHolding, setIsHolding] = useState<boolean>(false);
+  const [isFloatingCeremony, setIsFloatingCeremony] = useState<boolean>(false);
+  const [showHoldTip, setShowHoldTip] = useState<boolean>(false);
+  const holdStartTimeRef = useRef<number | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
   // Reset to Step 1 whenever modal opens
   useEffect(() => {
     if (isOpen) {
@@ -378,8 +387,31 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       setDecorCategory('flower');
       setErrors({});
       setServerError(null);
+      setHoldProgress(0);
+      setIsHolding(false);
+      setIsFloatingCeremony(false);
+      setShowHoldTip(false);
     }
   }, [isOpen]);
+
+  // Cleanup hold animation frame on unmount or step switch
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setHoldProgress(0);
+    setIsHolding(false);
+    setIsFloatingCeremony(false);
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+  }, [step]);
 
   // Sync initial party code from props/invite link
   useEffect(() => {
@@ -461,19 +493,15 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitKrathong = async () => {
     setServerError(null);
-
-    // Light up automatically upon launch if unlit
-    if (!isLit) {
-      setIsLit(true);
-    }
 
     const remaining = getRemainingCooldownSeconds();
     if (remaining > 0) {
       setCooldownRemaining(remaining);
       setServerError(`รออีก ${remaining} วินาที ก่อนปล่อยกระทงใบถัดไป`);
+      setIsFloatingCeremony(false);
+      setHoldProgress(0);
       return;
     }
 
@@ -496,7 +524,9 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     const validation = validateKrathongInput(payload);
     if (!validation.valid) {
       setErrors(validation.errors);
-      setStep(3); // Go to step 3 where name & wish inputs are located
+      setStep(3);
+      setIsFloatingCeremony(false);
+      setHoldProgress(0);
       return;
     }
 
@@ -509,24 +539,126 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
         onClose();
       } else {
         setServerError(result.error || 'ไม่สามารถปล่อยกระทงได้ ลองใหม่อีกครั้งนะ');
+        setIsFloatingCeremony(false);
+        setHoldProgress(0);
       }
     } catch {
       setServerError('ไม่สามารถเชื่อมต่อได้ในขณะนี้');
+      setIsFloatingCeremony(false);
+      setHoldProgress(0);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const HOLD_DURATION_MS = 1600;
+
+  const startHolding = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('button' in e && e.button !== 0) return;
+    if (isSubmitting || cooldownRemaining > 0 || isFloatingCeremony) return;
+
+    // Validate inputs first! If invalid, highlight errors immediately and do not start holding
+    const effectivePartyCode = mode !== 'solo' ? (partyCode.trim() || undefined) : undefined;
+    const testPayload: KrathongInput = {
+      sender_name: senderName.trim(),
+      secondary_name: mode === 'couple' ? secondaryName.trim() : undefined,
+      mode,
+      faculty,
+      wish: wish.trim(),
+      wish_category: wishCategory,
+      base_type: base,
+      flower_type: flower,
+      candle_type: candle,
+      sacred_items: sacredItems,
+      party_code: effectivePartyCode,
+    };
+    const validation = validateKrathongInput(testPayload);
+    if (!validation.valid) {
+      setErrors(validation.errors);
+      return;
+    }
+    setErrors({});
+
+    setIsHolding(true);
+    setIsLit(true);
+    setShowHoldTip(false);
+    sound.playWaterDrop();
+    holdStartTimeRef.current = performance.now();
+
+    const tick = (now: number) => {
+      if (!holdStartTimeRef.current) return;
+      const elapsed = now - holdStartTimeRef.current;
+      const p = Math.min(100, (elapsed / HOLD_DURATION_MS) * 100);
+      setHoldProgress(p);
+
+      if (p >= 100) {
+        handleHoldComplete();
+      } else {
+        animFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    animFrameRef.current = requestAnimationFrame(tick);
+  };
+
+  const stopHolding = () => {
+    if (isFloatingCeremony) return;
+    if (isHolding && holdProgress < 100) {
+      setShowHoldTip(true);
+      setTimeout(() => setShowHoldTip(false), 2500);
+    }
+    setIsHolding(false);
+    holdStartTimeRef.current = null;
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    setHoldProgress(0);
+  };
+
+  const handleHoldComplete = () => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    setIsHolding(false);
+    setHoldProgress(100);
+    setIsFloatingCeremony(true);
+    sound.playTempleBell();
+    sound.playWaterDrop();
+
+    // 850ms ceremony transition before resolving submit
+    setTimeout(() => {
+      submitKrathong();
+    }, 850);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting || cooldownRemaining > 0 || isFloatingCeremony) return;
+    handleHoldComplete();
   };
 
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn font-thai"
+      className={`fixed inset-0 z-50 overflow-y-auto flex items-end sm:items-center justify-center p-0 sm:p-4 font-thai transition-all duration-500 ${
+        isHolding || isFloatingCeremony
+          ? 'bg-black/35 backdrop-blur-[2px]'
+          : 'bg-black/75 backdrop-blur-md'
+      }`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="customizer-modal-title"
     >
-      <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col h-[88vh] sm:h-[730px] max-h-[92vh] sm:max-h-[760px] text-slate-100 overflow-hidden animate-fadeIn">
+      <div
+        className={`bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col h-[88vh] sm:h-[730px] max-h-[92vh] sm:max-h-[760px] text-slate-100 overflow-hidden transition-all duration-700 ${
+          isFloatingCeremony
+            ? 'opacity-0 scale-90 translate-y-12 pointer-events-none'
+            : 'opacity-100 scale-100'
+        }`}
+      >
         {/* ========================================================
             TOP PREVIEW AREA: กระทงลอยบนผิวน้ำแบบเรียลไทม์ (Live Floating)
            ======================================================== */}
@@ -546,32 +678,47 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
 
           {/* Floating Krathong SVG */}
           <div className="relative z-10 flex items-center justify-center pt-2">
-            <KrathongSVG
-              base={base}
-              flower={flower}
-              candle={candle}
-              sacredItems={sacredItems}
-              isLit={isLit}
-              onLightToggle={handleLightCandle}
-              interactive={true}
-              size={185}
-              showWaterRipples={true}
-            />
+            <div
+              className={`transition-all duration-300 ${
+                isHolding
+                  ? 'animate-krathongWiggle scale-110 drop-shadow-[0_0_25px_rgba(251,191,36,0.85)]'
+                  : ''
+              }`}
+            >
+              <KrathongSVG
+                base={base}
+                flower={flower}
+                candle={candle}
+                sacredItems={sacredItems}
+                isLit={isLit || isHolding}
+                onLightToggle={handleLightCandle}
+                interactive={true}
+                size={185}
+                showWaterRipples={true}
+              />
+            </div>
           </div>
 
-          {/* Flame Toggle Pill */}
-          <button
-            type="button"
-            onClick={handleLightCandle}
-            className={`absolute bottom-2.5 z-20 px-4 py-1.5 rounded-full text-xs font-semibold backdrop-blur-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-lg ${
-              isLit
-                ? 'bg-amber-400/20 text-amber-200 border border-amber-400/50 shadow-amber-400/20'
-                : 'bg-black/40 text-slate-300 border border-white/15 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            <Flame className={`w-3.5 h-3.5 ${isLit ? 'text-amber-400 fill-amber-400 animate-pulse' : 'text-slate-400'}`} />
-            <span>{isLit ? 'จุดไฟแล้ว • แตะเพื่อดับ' : 'แตะที่นี่เพื่อจุดไฟ'}</span>
-          </button>
+          {/* Flame Toggle Pill or Active Prayer Status */}
+          {isHolding ? (
+            <div className="absolute bottom-2.5 z-20 px-4 py-1.5 rounded-full text-xs font-bold bg-amber-400/25 text-amber-200 border border-amber-300/60 shadow-lg shadow-amber-400/30 flex items-center gap-1.5 animate-pulse">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+              <span>กำลังตั้งจิตอธิษฐาน... ดุกดิกเตรียมลอย ✨</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLightCandle}
+              className={`absolute bottom-2.5 z-20 px-4 py-1.5 rounded-full text-xs font-semibold backdrop-blur-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-lg ${
+                isLit
+                  ? 'bg-amber-400/20 text-amber-200 border border-amber-400/50 shadow-amber-400/20'
+                  : 'bg-black/40 text-slate-300 border border-white/15 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              <Flame className={`w-3.5 h-3.5 ${isLit ? 'text-amber-400 fill-amber-400 animate-pulse' : 'text-slate-400'}`} />
+              <span>{isLit ? 'จุดไฟแล้ว • แตะเพื่อดับ' : 'แตะที่นี่เพื่อจุดไฟ'}</span>
+            </button>
+          )}
         </div>
 
         {/* ========================================================
@@ -1167,51 +1314,180 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
                 )}
               </div>
 
+              {/* Hold to Pray Gentle Tip on Tap */}
+              {showHoldTip && (
+                <div className="text-center animate-bounce pt-1">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-400/20 border border-amber-400/40 px-3 py-1 rounded-full font-medium shadow-md">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>แตะค้างปุ่มวงกลมไว้ให้เต็มวง เพื่อตั้งจิตอธิษฐานนะ ✨</span>
+                  </span>
+                </div>
+              )}
+
               {/* Bottom Sticky Action Buttons */}
               <div className="pt-3 mt-auto flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="h-11 sm:h-12 px-5 rounded-full font-semibold text-xs sm:text-sm bg-white/8 hover:bg-white/15 border border-white/12 text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                  disabled={isHolding || isFloatingCeremony}
+                  className="h-14 sm:h-16 px-4 sm:px-5 rounded-2xl sm:rounded-3xl font-semibold text-xs sm:text-sm bg-white/8 hover:bg-white/15 border border-white/12 text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap flex-shrink-0 disabled:opacity-40"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>ย้อนกลับ</span>
                 </button>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting || cooldownRemaining > 0}
-                  className="flex-1 h-11 sm:h-12 px-6 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400/90 via-amber-300/95 to-amber-500/90 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-xl shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                {/* Main Hold-to-Pray & Float Button (ปุ่มวงกลมกดค้างอธิษฐาน) */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onMouseDown={startHolding}
+                  onMouseUp={stopHolding}
+                  onMouseLeave={stopHolding}
+                  onTouchStart={startHolding}
+                  onTouchEnd={stopHolding}
+                  onTouchCancel={stopHolding}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className={`flex-1 h-14 sm:h-16 px-3.5 sm:px-4 rounded-2xl sm:rounded-3xl relative overflow-hidden select-none transition-all cursor-pointer border-2 flex items-center gap-3 ${
+                    cooldownRemaining > 0 || isSubmitting
+                      ? 'opacity-60 pointer-events-none border-white/10 bg-white/5'
+                      : isHolding
+                      ? 'border-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.5)] scale-[0.99] bg-slate-900/95'
+                      : 'border-amber-400/50 hover:border-amber-300 shadow-lg shadow-amber-500/15 bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-amber-500/15'
+                  }`}
                 >
-                  {isSubmitting ? (
-                    <span>กำลังปล่อยกระทง...</span>
-                  ) : cooldownRemaining > 0 ? (
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4" />
-                      <span>รออีก {cooldownRemaining} วินาที</span>
-                    </span>
-                  ) : initialPartyCode ? (
-                    <span className="flex items-center gap-1.5">
-                      <Check className="w-4 h-4 stroke-[3]" />
-                      <span>อธิษฐานแล้ว พร้อมลอย!</span>
-                    </span>
-                  ) : mode !== 'solo' ? (
-                    <span className="flex items-center gap-1.5">
-                      <Users className="w-4 h-4" />
-                      <span>จุดไฟ & เข้าห้องรอเพื่อนลอยพร้อมกัน</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5">
-                      <Flame className="w-4 h-4 fill-slate-950" />
-                      <span>จุดไฟ & ปล่อยกระทงลงน้ำ</span>
-                    </span>
-                  )}
-                </button>
+                  {/* Background Progress Fill Sweep */}
+                  <div
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500/35 via-amber-400/50 to-amber-300/40 pointer-events-none transition-all duration-75 ease-linear"
+                    style={{ width: `${holdProgress}%` }}
+                  />
+
+                  {/* Circular Progress Ring */}
+                  <div className="relative w-10 h-10 sm:w-11 sm:h-11 flex-shrink-0 flex items-center justify-center z-10">
+                    <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 44 44">
+                      {/* Background Track Circle */}
+                      <circle
+                        cx="22"
+                        cy="22"
+                        r="18"
+                        stroke="currentColor"
+                        strokeWidth="3.2"
+                        fill="none"
+                        className="text-white/15"
+                      />
+                      {/* Animated Golden Progress Arc */}
+                      <circle
+                        cx="22"
+                        cy="22"
+                        r="18"
+                        stroke="url(#holdGoldGrad)"
+                        strokeWidth="3.8"
+                        strokeDasharray="113.1"
+                        strokeDashoffset={113.1 - (holdProgress / 100) * 113.1}
+                        strokeLinecap="round"
+                        fill="none"
+                        className="transition-all duration-75 ease-linear"
+                      />
+                      <defs>
+                        <linearGradient id="holdGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#FEF08A" />
+                          <stop offset="50%" stopColor="#FBBF24" />
+                          <stop offset="100%" stopColor="#F59E0B" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+
+                    {/* Center Icon */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      {holdProgress >= 100 ? (
+                        <Check className="w-5 h-5 text-amber-300 stroke-[3] animate-bounce" />
+                      ) : isHolding ? (
+                        <span className="text-[10px] font-black text-amber-200">
+                          {Math.round(holdProgress)}%
+                        </span>
+                      ) : (
+                        <Flame className="w-5 h-5 text-amber-300 fill-amber-300" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Button Text Details */}
+                  <div className="flex-1 min-w-0 z-10 text-left">
+                    <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 leading-tight truncate">
+                      {isSubmitting ? (
+                        <span>กำลังส่งคำขอลงสู่สายน้ำ...</span>
+                      ) : isFloatingCeremony || holdProgress >= 100 ? (
+                        <span className="text-amber-200 flex items-center gap-1">
+                          <span>อธิษฐานสำเร็จ! กำลังลอยสู่สระ...</span>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+                        </span>
+                      ) : isHolding ? (
+                        <span className="text-amber-200">
+                          กำลังตั้งจิตอธิษฐาน... ({Math.round(holdProgress)}%)
+                        </span>
+                      ) : cooldownRemaining > 0 ? (
+                        <span>รออีก {cooldownRemaining} วินาที</span>
+                      ) : initialPartyCode ? (
+                        <span>กดค้างเพื่ออธิษฐาน & เข้าก๊วนเพื่อน</span>
+                      ) : mode !== 'solo' ? (
+                        <span>กดค้างเพื่ออธิษฐาน & ชวนเพื่อน</span>
+                      ) : (
+                        <span>กดค้างเพื่อตั้งจิตอธิษฐาน & ลอย</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] sm:text-[11px] text-slate-300/85 truncate mt-0.5">
+                      {isHolding
+                        ? 'อย่าเพิ่งปล่อยมือนะ กำลังส่งพลังใจ... ✨'
+                        : isFloatingCeremony
+                        ? 'ขอให้คำอธิษฐานสมปรารถนาทุกประการ'
+                        : 'แตะค้างปุ่มวงกลมไว้สักครู่เพื่อปล่อยกระทงลงน้ำ'}
+                    </div>
+                  </div>
+                </div>
               </div>
             </form>
           )}
         </div>
       </div>
+
+      {/* ========================================================
+          IMMERSIVE FLOATING CEREMONY OVERLAY ("เหมือนลอยจริงๆ")
+          กระทงดุกดิกแล้วลอยลงสู่ผิวน้ำ พร้อมพื้นหลังสระน้ำ มทร.กรุงเทพ
+         ======================================================== */}
+      {isFloatingCeremony && (
+        <div className="fixed inset-0 z-[60] pointer-events-none flex flex-col items-center justify-center animate-fadeIn">
+          {/* Ambient Moonlight Halo */}
+          <div className="absolute w-[450px] h-[450px] rounded-full bg-amber-400/20 blur-3xl pointer-events-none animate-pulse" />
+
+          {/* Floating Krathong drifting into water */}
+          <div className="relative flex flex-col items-center animate-floatInWater scale-115 sm:scale-130">
+            {/* Expanding Water Ripple Rings on River Surface */}
+            <div className="absolute -bottom-4 flex items-center justify-center pointer-events-none">
+              <div className="w-52 h-24 rounded-full border-2 border-amber-300/80 animate-waterExpandPulse" />
+              <div className="absolute w-36 h-18 rounded-full border border-amber-400/60 animate-waterTouchRipple" />
+              <div className="absolute w-20 h-10 bg-amber-400/30 rounded-full blur-md" />
+            </div>
+
+            <div className="animate-krathongWiggle drop-shadow-[0_0_35px_rgba(251,191,36,0.9)]">
+              <KrathongSVG
+                base={base}
+                flower={flower}
+                candle={candle}
+                sacredItems={sacredItems}
+                isLit={true}
+                interactive={false}
+                size={200}
+                showWaterRipples={false}
+              />
+            </div>
+          </div>
+
+          {/* Ceremony Sacred Text Banner */}
+          <div className="mt-8 px-6 py-2.5 rounded-full bg-slate-900/90 backdrop-blur-xl border border-amber-300/50 text-amber-200 text-sm sm:text-base font-bold shadow-2xl animate-bounce flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+            <span>คำอธิษฐานส่งถึงพระแม่แล้ว... กำลังลอยสู่สายน้ำ ✨</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
