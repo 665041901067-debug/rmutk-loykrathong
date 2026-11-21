@@ -671,18 +671,36 @@ function LoyKrathongApp() {
             />
           ))}
 
-          {/* Interactive Turtle Pond Pier Landmark (บ่อเต่าแก้เคล็ด F) */}
+          {/* Subtle RMUTK Turtle on the Bridge / Pier (ไม่เกะกะ ไม่บังกระทง) */}
           <div
             onClick={(e) => {
               e.stopPropagation();
               setIsTurtleModalOpen(true);
             }}
-            className="absolute left-[3%] sm:left-[5%] top-[45%] z-20 cursor-pointer pointer-events-auto group animate-floatSlow"
-            title="แตะเพื่อโยนเหรียญบ่อเต่าแก้เคล็ด F"
+            className="absolute left-[4.5%] sm:left-[5.5%] top-[42.2%] z-20 cursor-pointer pointer-events-auto group transition-transform hover:scale-115 active:scale-95"
+            title="เต่าสระ มทร.กรุงเทพ (แตะเพื่อโยนเหรียญแก้เคล็ด)"
+            aria-label="บ่อเต่าแก้เคล็ด"
           >
-            <div className="flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-full border border-teal-400/50 text-[10px] sm:text-xs text-teal-200 font-semibold shadow-[0_4px_16px_rgba(20,184,166,0.3)] hover:scale-105 hover:border-teal-300 transition-all">
-              <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
-              <span>บ่อเต่าแก้เคล็ด</span>
+            <div className="relative flex items-center justify-center filter drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              <svg
+                width="28"
+                height="24"
+                viewBox="0 0 100 80"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="transition-transform group-hover:-translate-y-0.5"
+              >
+                <ellipse cx="24" cy="26" rx="14" ry="7" fill="#1e3a34" transform="rotate(-25 24 26)" />
+                <ellipse cx="76" cy="26" rx="14" ry="7" fill="#1e3a34" transform="rotate(25 76 26)" />
+                <ellipse cx="26" cy="56" rx="12" ry="6" fill="#172e29" transform="rotate(25 26 56)" />
+                <ellipse cx="74" cy="56" rx="12" ry="6" fill="#172e29" transform="rotate(-25 74 56)" />
+                <ellipse cx="50" cy="14" rx="9" ry="12" fill="#2d584e" />
+                <polygon points="50,72 47,62 53,62" fill="#1e3a34" />
+                <ellipse cx="50" cy="42" rx="28" ry="24" fill="#204b40" stroke="#52be9f" strokeWidth="2.5" />
+                <polygon points="50,26 59,32 59,42 50,48 41,42 41,32" fill="#295f52" stroke="#52be9f" strokeWidth="1.5" />
+                <circle cx="50" cy="37" r="4" fill="#fbbf24" />
+              </svg>
+              <div className="absolute -inset-1 rounded-full border border-teal-400/0 group-hover:border-teal-400/50 transition-colors pointer-events-none" />
             </div>
           </div>
         </PondScene>

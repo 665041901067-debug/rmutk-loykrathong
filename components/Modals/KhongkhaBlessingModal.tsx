@@ -632,7 +632,6 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
                       : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
                   }`}
                 >
-                  <span>🪷</span>
                   <span>{label}</span>
                 </button>
               );
@@ -657,7 +656,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
                   โองการพระแม่คงคา • วันเพ็ญ มทร.กรุงเทพ
                 </h3>
                 <p className="text-xs text-slate-300/90 mt-1 max-w-sm mx-auto leading-relaxed">
-                  คืนนี้เจ้ายังมิได้ลอยกระทงสู่สระน้ำ แต่พระแม่คงคาสถิต ณ สระน้ำแห่งนี้ พร้อมมอบพลังใจดีๆ และความสิริมงคลให้เธอเสมอ ✨
+                  คืนนี้เจ้ายังมิได้ลอยกระทงสู่สระน้ำ แต่พระแม่คงคาสถิต ณ สระน้ำแห่งนี้ พร้อมมอบพลังใจดีๆ และความสิริมงคลให้เธอเสมอ
                 </p>
               </div>
 
@@ -668,11 +667,11 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
                   {[
-                    { id: 'all' as const, label: '🍀 สุ่มรวมมิตร' },
-                    { id: 'study' as const, label: '📚 เรื่องเรียน/สอบ' },
-                    { id: 'career' as const, label: '💼 การงาน/การเงิน' },
-                    { id: 'love' as const, label: '💖 ความรัก/คนโปรด' },
-                    { id: 'health' as const, label: '🧘‍♀️ สุขภาพใจ/ปล่อยจอย' },
+                    { id: 'all' as const, label: 'สุ่มรวมมิตร' },
+                    { id: 'study' as const, label: 'เรื่องเรียน/สอบ' },
+                    { id: 'career' as const, label: 'การงาน/การเงิน' },
+                    { id: 'love' as const, label: 'ความรัก/คนโปรด' },
+                    { id: 'health' as const, label: 'สุขภาพใจ/ปล่อยจอย' },
                   ].map((cat) => {
                     const isSelected = visitorCategory === cat.id;
                     return (
@@ -787,7 +786,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
                     onClick={onOpenCustomizer}
                     className="w-full sm:w-auto h-9 px-4 rounded-full font-bold text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                   >
-                    <span>🪷 ปล่อยกระทงของฉัน</span>
+                    <span>ปล่อยกระทงของฉัน</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
