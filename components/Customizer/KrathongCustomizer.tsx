@@ -363,7 +363,7 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
   const [flower, setFlower] = useState<FlowerType>('lotus');
   const [candle, setCandle] = useState<CandleSet>('traditional');
   const [sacredItems, setSacredItems] = useState<SacredItem[]>(['coin']);
-  const [isLit, setIsLit] = useState<boolean>(false);
+  const [isLit, setIsLit] = useState<boolean>(true); // จุดเทียนสว่างไสวอัตโนมัติ ไม่ต้องคอยกดจุดเอง
 
   // Status & Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -391,6 +391,7 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       setIsHolding(false);
       setIsFloatingCeremony(false);
       setShowHoldTip(false);
+      setIsLit(true); // จุดเทียนอัตโนมัติตั้งแต่เริ่ม
     }
   }, [isOpen]);
 
@@ -407,6 +408,9 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     setHoldProgress(0);
     setIsHolding(false);
     setIsFloatingCeremony(false);
+    if (step === 3) {
+      setIsLit(true); // จุดเทียนอัตโนมัติเมื่อถึงขั้นตอนอธิษฐาน
+    }
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
@@ -699,11 +703,11 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
             </div>
           </div>
 
-          {/* Flame Toggle Pill or Active Prayer Status */}
+          {/* Flame Status Pill or Active Prayer Status (จุดเทียนสว่างไสวอัตโนมัติ) */}
           {isHolding ? (
             <div className="absolute bottom-2.5 z-20 px-4 py-1.5 rounded-full text-xs font-bold bg-amber-400/25 text-amber-200 border border-amber-300/60 shadow-lg shadow-amber-400/30 flex items-center gap-1.5 animate-pulse">
               <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
-              <span>กำลังตั้งจิตอธิษฐาน... ดุกดิกเตรียมลอย ✨</span>
+              <span>เทียนสว่างไสว • กำลังตั้งจิตอธิษฐาน... ✨</span>
             </div>
           ) : (
             <button
@@ -716,7 +720,7 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
               }`}
             >
               <Flame className={`w-3.5 h-3.5 ${isLit ? 'text-amber-400 fill-amber-400 animate-pulse' : 'text-slate-400'}`} />
-              <span>{isLit ? 'จุดไฟแล้ว • แตะเพื่อดับ' : 'แตะที่นี่เพื่อจุดไฟ'}</span>
+              <span>{isLit ? 'เทียนส่องสว่างนำทางแล้ว ✨' : 'แตะเพื่อจุดไฟใหม่'}</span>
             </button>
           )}
         </div>
@@ -1054,7 +1058,10 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setStep(3)}
+                  onClick={() => {
+                    setIsLit(true);
+                    setStep(3);
+                  }}
                   className="flex-1 h-11 sm:h-12 rounded-full font-bold text-sm bg-gradient-to-r from-amber-400/90 via-amber-300/95 to-amber-500/90 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-200/50 shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>ถัดไป: เขียนคำอธิษฐาน</span>
