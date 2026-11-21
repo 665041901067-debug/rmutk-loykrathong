@@ -32,25 +32,26 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ | สระน้ำแห่งคำอธิษฐาน',
-    description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐาน โยนเหรียญบ่อเต่า และเสี่ยงทายเซียมซีแบบเรียลไทม์',
+    description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐาน จุดประทีป ปล่อยโคมลอย โยนเหรียญบ่อเต่าแก้เคล็ด และเสี่ยงทายเซียมซี',
     url: 'https://rmutk-loykrathong.vercel.app',
     siteName: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
     type: 'website',
     locale: 'th_TH',
     images: [
       {
-        url: '/icon.png',
-        width: 512,
-        height: 512,
+        url: 'https://rmutk-loykrathong.vercel.app/og-image.png',
+        width: 1200,
+        height: 630,
         alt: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
+        type: 'image/png',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
-    description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐาน และโยนเหรียญบ่อเต่าแก้เคล็ด',
-    images: ['/icon.png'],
+    title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ | สระน้ำแห่งคำอธิษฐาน',
+    description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐาน จุดประทีป ปล่อยโคมลอย โยนเหรียญบ่อเต่าแก้เคล็ด',
+    images: ['https://rmutk-loykrathong.vercel.app/og-image.png'],
   },
 };
 
