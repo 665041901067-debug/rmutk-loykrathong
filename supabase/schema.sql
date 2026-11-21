@@ -70,7 +70,8 @@ CREATE POLICY "Allow public insert for blessings"
     ON public.krathong_blessings FOR INSERT
     WITH CHECK (true);
 
--- 4. ฟังก์ชัน RPC: increment_bless (แก้ไขปัญหา ambiguous column reference ด้วยการระบุชื่อฟังก์ชันกำกับ)
+-- 4. ฟังก์ชัน RPC: increment_bless
+DROP FUNCTION IF EXISTS public.increment_bless CASCADE;
 CREATE OR REPLACE FUNCTION public.increment_bless(
     row_id UUID,
     voter_id UUID
