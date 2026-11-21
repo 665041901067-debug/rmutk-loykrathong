@@ -1,40 +1,140 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Krathong } from '@/types';
-import { generateKhongkhaBlessing, KhongkhaBlessing } from '@/lib/khongkhaBlessing';
+import { Krathong, WishCategory } from '@/types';
+import {
+  generateKhongkhaBlessing,
+  generateDailyKhongkhaBlessing,
+  getRandomWaterVirtue,
+  KhongkhaBlessing,
+} from '@/lib/khongkhaBlessing';
 import { sound } from '@/lib/sound';
-import { X, Download, Share2, Check, Sparkles, Scroll, Droplets } from 'lucide-react';
+import {
+  X,
+  Download,
+  Check,
+  Sparkles,
+  Droplets,
+  RefreshCw,
+  MapPin,
+  ArrowRight,
+} from 'lucide-react';
 
 interface KhongkhaBlessingModalProps {
   krathong: Krathong | null;
   isOpen: boolean;
   onClose: () => void;
+  myKrathongs?: Krathong[];
+  onOpenCustomizer?: () => void;
+  onLocateKrathong?: (krathong: Krathong) => void;
 }
 
 export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
   krathong,
   isOpen,
   onClose,
+  myKrathongs = [],
+  onOpenCustomizer,
+  onLocateKrathong,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [activeKrathong, setActiveKrathong] = useState<Krathong | null>(krathong);
   const [blessing, setBlessing] = useState<KhongkhaBlessing | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
 
+  // Visitor Mode States (สำหรับคนที่ยังไม่ได้ลอยกระทง)
+  const [visitorCategory, setVisitorCategory] = useState<WishCategory | 'all'>('all');
+  const [isCardRevealed, setIsCardRevealed] = useState<boolean>(false);
+
+  // Interactive Blessings / Sprinkling Water States (ลูกเล่นพรมน้ำมนต์ & สลับข้อคิด)
+  const [isSprinkling, setIsSprinkling] = useState<boolean>(false);
+  const [hasSprinkled, setHasSprinkled] = useState<boolean>(false);
+  const [customWaterVirtue, setCustomWaterVirtue] = useState<string | null>(null);
+
   useEffect(() => {
-    if (krathong && isOpen) {
-      const generated = generateKhongkhaBlessing(krathong);
-      setBlessing(generated);
+    if (isOpen) {
+      setHasSprinkled(false);
+      setCustomWaterVirtue(null);
+      if (krathong) {
+        setActiveKrathong(krathong);
+        const generated = generateKhongkhaBlessing(krathong);
+        setBlessing(generated);
+        setIsCardRevealed(true);
+      } else {
+        setActiveKrathong(null);
+        const daily = generateDailyKhongkhaBlessing('all');
+        setBlessing(daily);
+        setVisitorCategory('all');
+        setIsCardRevealed(false);
+      }
       sound.playTempleBell();
-      sound.playWaterDrop();
     }
   }, [krathong, isOpen]);
 
-  if (!isOpen || !krathong || !blessing) return null;
+  // Switch between user's multiple floated krathongs
+  const handleSelectMyKrathong = (k: Krathong) => {
+    setActiveKrathong(k);
+    const generated = generateKhongkhaBlessing(k);
+    setBlessing(generated);
+    setCustomWaterVirtue(null);
+    setHasSprinkled(false);
+    setIsCardRevealed(true);
+    sound.playWaterDrop();
+  };
+
+  // Change category in Visitor Mode
+  const handleSelectVisitorCategory = (cat: WishCategory | 'all') => {
+    setVisitorCategory(cat);
+    const newDaily = generateDailyKhongkhaBlessing(cat);
+    setBlessing(newDaily);
+    setCustomWaterVirtue(null);
+    setIsCardRevealed(true);
+    sound.playWaterDrop();
+  };
+
+  // Reveal card in Visitor Mode
+  const handleRevealCard = () => {
+    setIsCardRevealed(true);
+    sound.playWaterDrop();
+    sound.playTempleBell();
+  };
+
+  // Draw another random card in Visitor Mode
+  const handleDrawNewCard = () => {
+    const newDaily = generateDailyKhongkhaBlessing(visitorCategory);
+    setBlessing(newDaily);
+    setCustomWaterVirtue(null);
+    sound.playWaterDrop();
+  };
+
+  // Interactive Holy Water Sprinkle Effect
+  const handleSprinkleWater = () => {
+    setIsSprinkling(true);
+    setHasSprinkled(true);
+    sound.playWaterDrop();
+    sound.playSparkle();
+    setTimeout(() => {
+      setIsSprinkling(false);
+    }, 2200);
+  };
+
+  // Interactive Wisdom Quote Shuffle
+  const handleShuffleVirtue = () => {
+    const v = getRandomWaterVirtue();
+    setCustomWaterVirtue(v);
+    sound.playWaterDrop();
+  };
+
+  if (!isOpen || !blessing) return null;
+
+  const activeVirtue = customWaterVirtue || blessing.waterVirtue;
+  const isOwner = Boolean(
+    activeKrathong && myKrathongs.some((k) => k.id === activeKrathong.id)
+  );
 
   const handleCopy = async () => {
-    const fullText = `[โองการพระแม่คงคา ถึง ${blessing.recipientName} (${blessing.faculty})]\n\nคำขอของคุณ: "${blessing.wish}"\n\n${blessing.headline}\n${blessing.cleansingWord}\n\n${blessing.wishBlessing}\n\n${blessing.sacredOfferingWord ? blessing.sacredOfferingWord + '\n\n' : ''}---\nข้อคิดเตือนใจ: ${blessing.waterVirtue}\n(ประเพณีลอยกระทงออนไลน์ มทร.กรุงเทพ)`;
+    const fullText = `[โองการพระแม่คงคา ถึง ${blessing.recipientName} (${blessing.faculty})]\n\nคำขอของคุณ: "${blessing.wish}"\n\n${blessing.headline}\n${blessing.cleansingWord}\n\n${blessing.wishBlessing}\n\n${blessing.sacredOfferingWord ? blessing.sacredOfferingWord + '\n\n' : ''}---\nข้อคิดเตือนใจ: ${activeVirtue}\n(ประเพณีลอยกระทงออนไลน์ มทร.กรุงเทพ)`;
     try {
       await navigator.clipboard.writeText(fullText);
       setCopied(true);
@@ -400,7 +500,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
 
       // 10. Water Virtue Banner Box (ข้อคิดเตือนใจ)
       ctx.font = thaiFont('bold', 27);
-      const punchLines = wrapCanvasThai(blessing.waterVirtue, 740);
+      const punchLines = wrapCanvasThai(activeVirtue, 740);
       const punchBoxH = Math.max(130, punchLines.length * 44 + 70);
 
       const punchGrad = ctx.createLinearGradient(0, currentY, 0, currentY + punchBoxH);
@@ -461,7 +561,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
       // Convert to high-resolution PNG image and trigger browser download
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.download = `khongkha-blessing-${blessing.recipientName}.png`;
+      link.download = `khongkha-blessing-${blessing.recipientName.replace(/\s+/g, '_')}.png`;
       link.href = dataUrl;
       link.click();
     } catch {
@@ -481,7 +581,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
       {/* Hidden Canvas for High-Resolution Export */}
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-lg rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative">
+      <div className="bg-slate-900/85 backdrop-blur-2xl border border-white/15 w-full max-w-lg rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative">
         {/* Divine Golden Water Ripple Glow */}
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-400/80 to-transparent" />
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-44 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
@@ -489,10 +589,15 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 relative z-10">
           <div className="flex items-center gap-2">
-            <Droplets className="w-4 h-4 text-amber-300" />
+            <Droplets className="w-4 h-4 text-amber-300 animate-pulse" />
             <span id="khongkha-modal-title" className="text-sm font-bold text-amber-300">
               พระแม่คงคาประสาทพร
             </span>
+            {hasSprinkled && (
+              <span className="hidden sm:inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30">
+                ✨ พรมน้ำมนต์แล้ว
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -504,73 +609,300 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body: The Sacred Parchment (Gen-Z Compact & Fun) */}
-        <div className="p-5 sm:p-6 max-h-[75vh] overflow-y-auto font-thai space-y-3.5 text-left relative z-10">
-          {/* Sacred Emblem & Title */}
-          <div className="flex flex-col items-center text-center pb-1">
-            <div className="w-12 h-12 rounded-full border border-amber-400/40 bg-amber-400/10 flex items-center justify-center shadow-lg shadow-amber-500/10 mb-2">
-              <Sparkles className="w-5 h-5 text-amber-300" />
-            </div>
-            <h3 className="text-base sm:text-lg font-bold text-amber-200">
-              โองการพระแม่คงคา • RMUTK 2026
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              ประสาทพรอวยชัยในค่ำคืนวันเพ็ญ มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ
-            </p>
+        {/* Quick Selector Pills if User has Floated Multiple Krathongs */}
+        {myKrathongs.length > 1 && (
+          <div className="px-5 pt-3 pb-1 border-b border-white/5 bg-white/[0.02] flex items-center gap-1.5 overflow-x-auto no-scrollbar relative z-10">
+            <span className="text-[11px] text-slate-400 whitespace-nowrap font-medium mr-1">
+              กระทงของฉัน:
+            </span>
+            {myKrathongs.map((k) => {
+              const isSelected = activeKrathong?.id === k.id;
+              const label =
+                k.mode === 'couple' && k.secondary_name
+                  ? `${k.sender_name} & ${k.secondary_name}`
+                  : k.sender_name;
+              return (
+                <button
+                  key={k.id}
+                  type="button"
+                  onClick={() => handleSelectMyKrathong(k)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex-shrink-0 flex items-center gap-1 ${
+                    isSelected
+                      ? 'bg-amber-400/90 text-slate-950 shadow-sm border border-amber-300/50'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                  }`}
+                >
+                  <span>🪷</span>
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
+        )}
 
-          {/* Recipient Details Pill */}
-          <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3 flex items-center justify-between text-xs sm:text-sm">
-            <div>
-              <span className="text-slate-400 text-xs block">ผู้รับพร</span>
-              <span className="font-bold text-amber-300">{blessing.recipientName}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-slate-400 text-xs block">สังกัด</span>
-              <span className="text-slate-200">{blessing.faculty}</span>
-            </div>
-          </div>
-
-          {/* User's Original Wish */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 text-center">
-            <span className="text-xs text-slate-400 block mb-0.5">คำขอของคุณคืนนี้:</span>
-            <p className="text-xs sm:text-sm text-amber-200 font-medium whitespace-pre-wrap break-words [overflow-wrap:anywhere] break-all drop-shadow-[0_0_8px_rgba(251,191,36,0.25)]">
-              “{blessing.wish}”
-            </p>
-          </div>
-
-          {/* Headline Message from Goddess */}
-          <div className="p-3.5 rounded-2xl bg-amber-400/10 border border-amber-400/25 text-amber-100 text-xs sm:text-sm leading-relaxed text-center font-bold">
-            {blessing.headline}
-          </div>
-
-          {/* Main Blessing & Real-Talk Advice */}
-          <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2 text-xs sm:text-sm text-slate-200 leading-relaxed">
-            <p className="text-slate-300 font-medium">{blessing.cleansingWord}</p>
-            <p className="text-amber-100 leading-relaxed">{blessing.wishBlessing}</p>
-
-            {/* Sacred Offering Acknowledgement */}
-            {blessing.sacredOfferingWord && (
-              <div className="mt-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-200 text-xs leading-relaxed">
-                {blessing.sacredOfferingWord}
+        {/* Modal Body */}
+        <div className="p-5 sm:p-6 max-h-[75vh] overflow-y-auto font-thai space-y-4 text-left relative z-10">
+          {/* =========================================================================
+              SCENARIO 1: VISITOR MODE (ยังไม่ได้ลอยกระทงในค่ำคืนนี้)
+              มีลูกเล่นเสี่ยงทายเปิดการ์ดพรศักดิ์สิทธิ์ + พรมน้ำมนต์ + สะพานสู่การลอยกระทง
+             ========================================================================= */}
+          {!activeKrathong ? (
+            <div className="space-y-4">
+              {/* Altar Welcome Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-b from-amber-400/10 to-amber-500/5 border border-amber-300/25 text-center relative overflow-hidden">
+                <div className="w-11 h-11 rounded-full border border-amber-400/40 bg-amber-400/15 flex items-center justify-center shadow-lg shadow-amber-500/10 mx-auto mb-2">
+                  <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-amber-200">
+                  โองการพระแม่คงคา • วันเพ็ญ มทร.กรุงเทพ
+                </h3>
+                <p className="text-xs text-slate-300/90 mt-1 max-w-sm mx-auto leading-relaxed">
+                  คืนนี้เจ้ายังมิได้ลอยกระทงสู่สระน้ำ แต่พระแม่คงคาสถิต ณ สระน้ำแห่งนี้ พร้อมมอบพลังใจดีๆ และความสิริมงคลให้เธอเสมอ ✨
+                </p>
               </div>
-            )}
-          </div>
 
-          {/* Punchline Card */}
-          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/30 text-center text-xs sm:text-sm text-amber-200 font-bold">
-            {blessing.waterVirtue}
-          </div>
+              {/* Category Pills for Daily Blessing */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+                  <span>เลือกพลังงานที่คุณอยากเปิดรับในค่ำคืนนี้:</span>
+                </div>
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  {[
+                    { id: 'all' as const, label: '🍀 สุ่มรวมมิตร' },
+                    { id: 'study' as const, label: '📚 เรื่องเรียน/สอบ' },
+                    { id: 'career' as const, label: '💼 การงาน/การเงิน' },
+                    { id: 'love' as const, label: '💖 ความรัก/คนโปรด' },
+                    { id: 'health' as const, label: '🧘‍♀️ สุขภาพใจ/ปล่อยจอย' },
+                  ].map((cat) => {
+                    const isSelected = visitorCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => handleSelectVisitorCategory(cat.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center justify-center flex-shrink-0 cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-400/90 text-slate-950 font-bold border border-amber-300/50 shadow-sm'
+                            : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Interactive Card: Unrevealed State (Mystery Card) vs Revealed State */}
+              {!isCardRevealed ? (
+                <div
+                  onClick={handleRevealCard}
+                  className="group cursor-pointer p-6 rounded-3xl bg-slate-900/60 border-2 border-dashed border-amber-300/40 hover:border-amber-300/80 transition-all duration-300 flex flex-col items-center justify-center text-center space-y-3 relative overflow-hidden shadow-xl"
+                >
+                  {/* Subtle pulsing background glow */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-amber-400/10 via-transparent to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
+
+                  {/* Sacred Water Ripple Center */}
+                  <div className="relative w-20 h-20 flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border border-amber-300/40 animate-ping opacity-60" />
+                    <div className="absolute inset-2 rounded-full border border-amber-400/60 animate-pulse" />
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-300/25 to-amber-500/20 flex items-center justify-center shadow-lg shadow-amber-400/20 group-hover:scale-110 transition-transform">
+                      <Droplets className="w-7 h-7 text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                    </div>
+                  </div>
+
+                  <div className="relative z-10 space-y-1">
+                    <div className="text-sm font-bold text-amber-200 group-hover:text-amber-300 transition-colors flex items-center justify-center gap-1.5">
+                      <span>แตะผิวน้ำ เพื่อเปิดโองการรับพรพระแม่</span>
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      สัมผัสสายน้ำศักดิ์สิทธิ์ เสี่ยงทายรับพรพลังบวกประจำวัน ฉบับ Gen-Z
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3.5 animate-fadeIn">
+                  {/* Headline Message from Goddess */}
+                  <div className="p-3.5 rounded-2xl bg-amber-400/10 border border-amber-400/25 text-amber-100 text-xs sm:text-sm leading-relaxed text-center font-bold">
+                    {blessing.headline}
+                  </div>
+
+                  {/* Main Blessing & Real-Talk Advice */}
+                  <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2 text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    <p className="text-slate-300 font-medium">{blessing.cleansingWord}</p>
+                    <p className="text-amber-100 leading-relaxed">{blessing.wishBlessing}</p>
+                  </div>
+
+                  {/* Punchline Virtue Card */}
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/30 text-center text-xs sm:text-sm text-amber-200 font-bold">
+                    {activeVirtue}
+                  </div>
+
+                  {/* Interactive Utility Row for Visitor Card */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleDrawNewCard}
+                      className="h-8 px-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-amber-300" />
+                      <span>สุ่มเปิดใบใหม่</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSprinkleWater}
+                      className="h-8 px-3 rounded-full bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/30 text-amber-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Droplets className="w-3.5 h-3.5 text-amber-300" />
+                      <span>แตะพรมน้ำมนต์</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleShuffleVirtue}
+                      className="h-8 px-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>สลับข้อคิด</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Bridge to Floating Krathong (CTA สร้างกระทง) */}
+              {onOpenCustomizer && (
+                <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/15 to-amber-500/10 border border-amber-300/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-amber-200 block">
+                      อยากได้พรเฉพาะตัวของคุณโดยเฉพาะไหม?
+                    </span>
+                    <span className="text-[11px] text-slate-300 block">
+                      สร้างกระทงของคุณ ระบุคำขอ แล้วปล่อยสู่สระน้ำเพื่อรับโองการเฉพาะตัว
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onOpenCustomizer}
+                    className="w-full sm:w-auto h-9 px-4 rounded-full font-bold text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                  >
+                    <span>🪷 ปล่อยกระทงของฉัน</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* =========================================================================
+               SCENARIO 2: SPECIFIC KRATHONG MODE (มีกระทงของตัวเอง หรือเปิดดูจากสระ)
+               ========================================================================= */
+            <div className="space-y-3.5">
+              {/* Emblem & Title */}
+              <div className="flex flex-col items-center text-center pb-1">
+                <div className="w-12 h-12 rounded-full border border-amber-400/40 bg-amber-400/10 flex items-center justify-center shadow-lg shadow-amber-500/10 mb-2">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-amber-200">
+                  โองการพระแม่คงคา • RMUTK 2026
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  ประสาทพรอวยชัยในค่ำคืนวันเพ็ญ มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ
+                </p>
+                {isOwner && (
+                  <span className="mt-1.5 inline-flex items-center text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30">
+                    ✦ กระทงของคุณในสระน้ำ ✦
+                  </span>
+                )}
+              </div>
+
+              {/* Recipient Details Pill */}
+              <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-3 flex items-center justify-between text-xs sm:text-sm">
+                <div>
+                  <span className="text-slate-400 text-xs block">ผู้รับพร</span>
+                  <span className="font-bold text-amber-300">{blessing.recipientName}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-400 text-xs block">สังกัด</span>
+                  <span className="text-slate-200">{blessing.faculty}</span>
+                </div>
+              </div>
+
+              {/* User's Original Wish */}
+              <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 text-center">
+                <span className="text-xs text-slate-400 block mb-0.5">คำขอของคุณคืนนี้:</span>
+                <p className="text-xs sm:text-sm text-amber-200 font-medium whitespace-pre-wrap break-words [overflow-wrap:anywhere] break-all drop-shadow-[0_0_8px_rgba(251,191,36,0.25)]">
+                  “{blessing.wish}”
+                </p>
+              </div>
+
+              {/* Headline Message from Goddess */}
+              <div className="p-3.5 rounded-2xl bg-amber-400/10 border border-amber-400/25 text-amber-100 text-xs sm:text-sm leading-relaxed text-center font-bold">
+                {blessing.headline}
+              </div>
+
+              {/* Main Blessing & Real-Talk Advice */}
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2 text-xs sm:text-sm text-slate-200 leading-relaxed">
+                <p className="text-slate-300 font-medium">{blessing.cleansingWord}</p>
+                <p className="text-amber-100 leading-relaxed">{blessing.wishBlessing}</p>
+
+                {/* Sacred Offering Acknowledgement */}
+                {blessing.sacredOfferingWord && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-400/25 text-amber-200 text-xs leading-relaxed">
+                    {blessing.sacredOfferingWord}
+                  </div>
+                )}
+              </div>
+
+              {/* Punchline Card */}
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/30 text-center text-xs sm:text-sm text-amber-200 font-bold">
+                {activeVirtue}
+              </div>
+
+              {/* Interactive Utility Row for Krathong Blessing */}
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSprinkleWater}
+                  className="h-8 px-3 rounded-full bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/30 text-amber-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Droplets className="w-3.5 h-3.5 text-amber-300" />
+                  <span>แตะพรมน้ำมนต์</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShuffleVirtue}
+                  className="h-8 px-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>สลับข้อคิด</span>
+                </button>
+
+                {isOwner && onLocateKrathong && (
+                  <button
+                    type="button"
+                    onClick={() => onLocateKrathong(activeKrathong)}
+                    className="h-8 px-3 rounded-full bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-300/30 text-cyan-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>ดูกระทงในสระ</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Action Buttons (Uniform Standard Heights) */}
-        <div className="p-4 sm:p-5 border-t border-white/10 flex items-center gap-2.5">
+        <div className="p-4 sm:p-5 border-t border-white/10 flex items-center gap-2.5 relative z-10">
           <button
             type="button"
             onClick={handleDownloadParchment}
             disabled={isDownloading}
             className="flex-1 h-11 sm:h-12 px-4 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400/90 via-amber-300/90 to-amber-400/90 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-200/50 shadow-lg shadow-amber-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
+            <Download className="w-4 h-4" />
             <span>{isDownloading ? 'กำลังสร้างใบพร...' : 'บันทึกใบพรลงเครื่อง'}</span>
           </button>
 
@@ -580,13 +912,32 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
             className="h-11 sm:h-12 px-5 rounded-full font-semibold text-xs sm:text-sm bg-white/8 hover:bg-white/15 border border-white/12 text-slate-200 flex items-center justify-center gap-1.5 transition-colors active:scale-95 cursor-pointer flex-shrink-0"
           >
             {copied ? (
-              <span className="text-emerald-300 font-bold">คัดลอกแล้ว</span>
+              <span className="text-emerald-300 font-bold flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> คัดลอกแล้ว
+              </span>
             ) : (
               <span>คัดลอกพร</span>
             )}
           </button>
         </div>
+
+        {/* Holy Water Sprinkle Animation Overlay */}
+        {isSprinkling && (
+          <div className="absolute inset-0 z-30 pointer-events-none flex flex-col items-center justify-center bg-amber-400/10 backdrop-blur-[2px] animate-fadeIn">
+            <div className="relative w-32 h-32 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-2 border-amber-300/80 animate-ping" />
+              <div className="absolute inset-3 rounded-full border border-amber-200/90 animate-waterExpandPulse" />
+              <div className="w-16 h-16 rounded-full bg-amber-300/30 backdrop-blur-md flex items-center justify-center shadow-2xl shadow-amber-400/50">
+                <Droplets className="w-8 h-8 text-amber-200 animate-bounce" />
+              </div>
+            </div>
+            <div className="mt-3 px-4 py-1.5 rounded-full bg-slate-900/90 border border-amber-300/50 text-amber-200 text-xs font-bold shadow-xl animate-bounce">
+              ✨ พรมน้ำมนต์ศักดิ์สิทธิ์ • เสริมสิริมงคล พลังบวกเต็ม 100% ✨
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+

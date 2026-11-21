@@ -305,3 +305,114 @@ export function generateKhongkhaBlessing(krathong: Krathong): KhongkhaBlessing {
     waterVirtue: punchline,
   };
 }
+
+/**
+ * สุ่มโองการประสาทพรประจำวัน สำหรับผู้ใช้ทั่วไปหรือคนที่ยังไม่ได้ลอยกระทง
+ */
+export function generateDailyKhongkhaBlessing(
+  category: WishCategory | 'all' = 'all',
+  visitorName: string = 'คนเก่งแห่ง มทร.กรุงเทพ'
+): KhongkhaBlessing {
+  const seed = Date.now() + Math.floor(Math.random() * 10000);
+  let effectiveIntent: BlessingIntent = 'study';
+
+  if (category === 'all') {
+    const allIntents: BlessingIntent[] = ['study', 'career', 'love', 'health', 'lifestyle', 'wacky'];
+    effectiveIntent = allIntents[seed % allIntents.length];
+  } else if (category === 'career') {
+    effectiveIntent = 'career';
+  } else if (category === 'love') {
+    effectiveIntent = 'love';
+  } else if (category === 'health') {
+    effectiveIntent = 'health';
+  } else {
+    effectiveIntent = 'study';
+  }
+
+  let pool = STUDY_BLESSINGS;
+  let punchlinePool = STUDY_PUNCHLINES;
+  let dummyWish = 'ขอให้เรียนดี โปรเจกต์ผ่านฉลุย';
+
+  switch (effectiveIntent) {
+    case 'career':
+      pool = CAREER_BLESSINGS;
+      punchlinePool = CAREER_PUNCHLINES;
+      dummyWish = 'ขอให้การงานปัง เงินทองไหลมาเทมา';
+      break;
+    case 'love':
+      pool = LOVE_BLESSINGS;
+      punchlinePool = LOVE_PUNCHLINES;
+      dummyWish = 'ขอให้พบเจอความรักที่ดีและเป็นเซฟโซน';
+      break;
+    case 'health':
+      pool = HEALTH_BLESSINGS;
+      punchlinePool = HEALTH_PUNCHLINES;
+      dummyWish = 'ขอให้สุขภาพแข็งแรง จิตใจสดใสเบิกบาน';
+      break;
+    case 'lifestyle':
+      pool = LIFESTYLE_BLESSINGS;
+      punchlinePool = LIFESTYLE_PUNCHLINES;
+      dummyWish = 'ขอให้ชีวิตมีอิสระ มีความสุขและรอยยิ้ม';
+      break;
+    case 'wacky':
+      pool = WACKY_BLESSINGS;
+      punchlinePool = WACKY_PUNCHLINES;
+      dummyWish = 'ขอให้จักรวาลจัดสรรความเฮงและความปัง';
+      break;
+    case 'study':
+    default:
+      pool = STUDY_BLESSINGS;
+      punchlinePool = STUDY_PUNCHLINES;
+      dummyWish = 'ขอให้สอบผ่านฉลุย เกรดสวยดั่งใจ';
+      break;
+  }
+
+  const wishBlessingFn = pool[seed % pool.length];
+  const wishBlessing = wishBlessingFn(dummyWish);
+  const punchline = punchlinePool[seed % punchlinePool.length];
+
+  const headlines = [
+    `พระแม่คงคาสถิต ณ สระน้ำ มทร.กรุงเทพ พร้อมประสาทพรแก่เธอ`,
+    `โองการสายน้ำศักดิ์สิทธิ์ประจำวันเพ็ญ สู่ "${visitorName}"`,
+    `แสงจันทร์วันเพ็ญส่องสว่าง พระแม่ขอมอบพลังใจดีๆ แด่เธอ`,
+    `พรสิริมงคลแห่งสายน้ำเปิดรับโชคชะตาที่ดีของ "${visitorName}"`,
+  ];
+  const headline = headlines[seed % headlines.length];
+
+  const cleansings = [
+    'ขอสายน้ำชำระล้างความเหนื่อยล้าสะสม พัดพาความนอยด์ทิ้งไป แล้วเปิดรับพลังงานบวกแบบจัดเต็ม!',
+    'ปล่อยวางความกังวลไว้กับสายน้ำแห่ง มทร.กรุงเทพ แล้วเปิดรับโอกาสใหม่ๆ ที่กำลังจะเข้ามา!',
+    'ขอให้ความทุกข์ใจทั้งปวงลอยหายไป เหลือไว้แต่ความสุขกายสบายใจ ความโชคดี และรอยยิ้ม!',
+  ];
+  const cleansingWord = cleansings[seed % cleansings.length];
+
+  return {
+    id: `daily-${seed}`,
+    recipientName: visitorName,
+    faculty: 'สระน้ำ มทร.กรุงเทพ',
+    wish: dummyWish,
+    headline,
+    cleansingWord,
+    wishBlessing,
+    flowerSymbolism: 'สายน้ำบริสุทธิ์เปรียบดั่งจิตใจที่พร้อมเริ่มต้นสิ่งใหม่ด้วยพลังบวก',
+    facultyWisdom: 'ชาว มทร.กรุงเทพ มีของดีในตัวอยู่แล้ว มั่นใจในตัวเองเข้าไว้คนเก่ง!',
+    closingVerse: 'ขอให้ทุกย่างก้าวเปี่ยมด้วยสติ ความสุข ความปลอดภัย และความสำเร็จ',
+    waterVirtue: punchline,
+  };
+}
+
+/**
+ * ดึงคำคมข้อคิดเตือนใจแบบสุ่มสำหรับปุ่มสลับข้อคิด
+ */
+export function getRandomWaterVirtue(): string {
+  const allPunchlines = [
+    ...STUDY_PUNCHLINES,
+    ...CAREER_PUNCHLINES,
+    ...LOVE_PUNCHLINES,
+    ...HEALTH_PUNCHLINES,
+    ...LIFESTYLE_PUNCHLINES,
+    ...WACKY_PUNCHLINES,
+  ];
+  return allPunchlines[Math.floor(Math.random() * allPunchlines.length)];
+}
+

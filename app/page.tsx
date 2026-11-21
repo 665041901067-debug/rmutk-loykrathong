@@ -481,10 +481,20 @@ function LoyKrathongApp() {
   };
 
   // 8. Handle Open Khongkha Blessing Modal
-  const handleOpenKhongkhaBlessing = (k: Krathong) => {
-    setBlessingKrathong(k);
+  const handleOpenKhongkhaBlessing = (k?: Krathong | null) => {
+    setBlessingKrathong(k || null);
     setIsKhongkhaModalOpen(true);
   };
+
+  // User's own floated krathongs (from localStorage + newly created in session)
+  const myKrathongs = useMemo(() => {
+    const myIds = new Set(getMyKrathongIds());
+    const list = allKrathongsDatabase.filter((k) => myIds.has(k.id));
+    if (newlyCreatedKrathong && !list.some((k) => k.id === newlyCreatedKrathong.id)) {
+      list.unshift(newlyCreatedKrathong);
+    }
+    return list;
+  }, [allKrathongsDatabase, newlyCreatedKrathong]);
 
   // 9. Party Filter & Pond Krathongs
   const [focusPartyOnly, setFocusPartyOnly] = useState<boolean>(false);
@@ -769,13 +779,13 @@ function LoyKrathongApp() {
           <button
             type="button"
             onClick={() => {
-              if (newlyCreatedKrathong) {
-                handleOpenKhongkhaBlessing(newlyCreatedKrathong);
-              } else if (allKrathongsDatabase.length > 0) {
-                handleOpenKhongkhaBlessing(allKrathongsDatabase[0]);
+              if (myKrathongs.length > 0) {
+                // ถ้ามีกระทงที่เคยลอยแล้ว ให้เปิดโองการของกระทงล่าสุดของตนเอง
+                handleOpenKhongkhaBlessing(myKrathongs[0]);
               } else {
-                setNotification('สร้างกระทงของคุณเพื่อรับโองการประสาทพรจากพระแม่คงคา');
-                setIsCustomizerOpen(true);
+                // ถ้ายังไม่เคยลอยกระทง ให้เปิดโหมดแท่นเสี่ยงทายพรพระแม่ประจำวัน (ลูกเล่นเสี่ยงทาย + พรมน้ำมนต์)
+                setBlessingKrathong(null);
+                setIsKhongkhaModalOpen(true);
               }
             }}
             className="flex-1 h-9 sm:h-10 px-2 sm:px-3 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
@@ -917,6 +927,16 @@ function LoyKrathongApp() {
         krathong={blessingKrathong}
         isOpen={isKhongkhaModalOpen}
         onClose={() => setIsKhongkhaModalOpen(false)}
+        myKrathongs={myKrathongs}
+        onOpenCustomizer={() => {
+          setIsKhongkhaModalOpen(false);
+          setIsCustomizerOpen(true);
+        }}
+        onLocateKrathong={(k) => {
+          setIsKhongkhaModalOpen(false);
+          setFocusedKrathongId(k.id);
+          setSelectedKrathong(k);
+        }}
       />
     </div>
   );
