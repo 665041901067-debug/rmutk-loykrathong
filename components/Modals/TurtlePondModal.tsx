@@ -89,11 +89,14 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
     setFacultyScores(getFacultyScores());
 
     try {
-      const saved = localStorage.getItem('rmutk_turtle_coins');
+      const saved = localStorage.getItem('rmutk_turtle_coins_real');
       if (saved) setMyCoins(parseInt(saved, 10) || 0);
-    } catch {}
+      else setMyCoins(0);
+    } catch {
+      setMyCoins(0);
+    }
 
-    // ดึงคะแนนสะสมสดล่าสุดจากฐานข้อมูล Supabase
+    // ดึงคะแนนสะสมสดล่าสุดจากฐานข้อมูล Supabase ตามจริง
     fetchSupabaseFacultyScores().then((scores) => {
       if (scores) setFacultyScores(scores);
     });
@@ -104,7 +107,9 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
     const unsubscribe = subscribeTurtleCoins((pulse) => {
       setFacultyScores((prev) => ({
         ...prev,
-        [pulse.faculty]: (prev[pulse.faculty] || 0) + pulse.coinsAdded,
+        [pulse.faculty]: pulse.totalCoins !== undefined
+          ? pulse.totalCoins
+          : (prev[pulse.faculty] || 0) + pulse.coinsAdded,
       }));
     });
 
@@ -206,7 +211,7 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
     setMyCoins((prev) => {
       const next = prev + 1;
       try {
-        localStorage.setItem('rmutk_turtle_coins', next.toString());
+        localStorage.setItem('rmutk_turtle_coins_real', next.toString());
       } catch {}
       return next;
     });
@@ -612,7 +617,7 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
                           className={`h-full rounded-full transition-all duration-700 ${
                             isMyFaculty ? 'bg-amber-400' : 'bg-gradient-to-r from-teal-400 to-cyan-400'
                           }`}
-                          style={{ width: `${Math.max(5, percent * 3)}%` }}
+                          style={{ width: `${percent > 0 ? Math.min(100, Math.max(6, percent)) : 0}%` }}
                         />
                       </div>
                     </div>

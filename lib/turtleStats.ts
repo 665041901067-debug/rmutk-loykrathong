@@ -21,27 +21,28 @@ export interface TurtleCoinPulse {
   playerId: string;
   nickname: string;
   timestamp: number;
+  totalCoins?: number;
 }
 
 const STORAGE_KEYS = {
   PROFILE: 'rmutk_turtle_profile',
-  FACULTY_SCORES: 'rmutk_turtle_faculty_scores',
-  MY_COINS: 'rmutk_turtle_coins',
+  FACULTY_SCORES: 'rmutk_turtle_scores_real',
+  MY_COINS: 'rmutk_turtle_coins_real',
 } as const;
 
-// Realistic baseline campus tally so the leaderboard feels vibrant from day one
+// คะแนนเริ่มต้นตามจริง ทุกคณะเริ่มต้นที่ 0 เหรียญ (ไม่มีการเมคตัวเลขขึ้นมา)
 export const DEFAULT_FACULTY_SCORES: Record<string, number> = {
-  'คณะวิศวกรรมศาสตร์': 1845,
-  'คณะวิทยาศาสตร์และเทคโนโลยี': 1620,
-  'คณะบริหารธุรกิจ': 1480,
-  'คณะศิลปศาสตร์': 1350,
-  'คณะครุศาสตร์อุตสาหกรรม': 980,
-  'คณะเทคโนโลยีคหกรรมศาสตร์': 890,
-  'คณะอุตสาหกรรมสิ่งทอ': 760,
-  'วิทยาลัยนานาชาติ': 640,
-  'บุคคลทั่วไป': 730,
-  'ศิษย์เก่า': 520,
-  'บุคลากร': 410,
+  'คณะวิศวกรรมศาสตร์': 0,
+  'คณะวิทยาศาสตร์และเทคโนโลยี': 0,
+  'คณะบริหารธุรกิจ': 0,
+  'คณะศิลปศาสตร์': 0,
+  'คณะครุศาสตร์อุตสาหกรรม': 0,
+  'คณะเทคโนโลยีคหกรรมศาสตร์': 0,
+  'คณะอุตสาหกรรมสิ่งทอ': 0,
+  'วิทยาลัยนานาชาติ': 0,
+  'บุคคลทั่วไป': 0,
+  'ศิษย์เก่า': 0,
+  'บุคลากร': 0,
 };
 
 /**
@@ -91,10 +92,10 @@ export function saveTurtleProfile(updates: Partial<TurtleProfile>): TurtleProfil
 }
 
 /**
- * ดึงคะแนนสะสมของแต่ละคณะ
+ * ดึงคะแนนสะสมของแต่ละคณะ (ข้อมูลจริง เริ่มต้นจาก 0)
  */
 export function getFacultyScores(): Record<string, number> {
-  const scores = { ...DEFAULT_FACULTY_SCORES };
+  const scores: Record<string, number> = { ...DEFAULT_FACULTY_SCORES };
   if (typeof window === 'undefined') return scores;
 
   try {
@@ -102,7 +103,7 @@ export function getFacultyScores(): Record<string, number> {
     if (raw) {
       const parsed = JSON.parse(raw);
       Object.keys(parsed).forEach((fac) => {
-        scores[fac] = (scores[fac] || 0) + (parsed[fac] || 0);
+        scores[fac] = Number(parsed[fac]) || 0;
       });
     }
   } catch {}
@@ -111,42 +112,37 @@ export function getFacultyScores(): Record<string, number> {
 }
 
 /**
- * บันทึกคะแนนเพิ่มให้กับคณะ
+ * บันทึกคะแนนเพิ่มให้กับคณะ (อัปเดตตามจริง)
  */
 export function addCoinsToFaculty(faculty: string, count: number): Record<string, number> {
-  if (typeof window === 'undefined') return DEFAULT_FACULTY_SCORES;
+  const currentScores = getFacultyScores();
+  currentScores[faculty] = (currentScores[faculty] || 0) + count;
 
-  let addedMap: Record<string, number> = {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.FACULTY_SCORES);
-    if (raw) addedMap = JSON.parse(raw);
-  } catch {}
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STORAGE_KEYS.FACULTY_SCORES, JSON.stringify(currentScores));
+    } catch {}
+  }
 
-  addedMap[faculty] = (addedMap[faculty] || 0) + count;
-
-  try {
-    localStorage.setItem(STORAGE_KEYS.FACULTY_SCORES, JSON.stringify(addedMap));
-  } catch {}
-
-  return getFacultyScores();
+  return currentScores;
 }
 
 /**
- * ดึงคะแนนสะสมของแต่ละคณะจาก Supabase turtle_coins (ถ้ามี)
+ * ดึงคะแนนสะสมของแต่ละคณะจาก Supabase turtle_coins ตามข้อมูลจริงในฐานข้อมูล
  */
 export async function fetchSupabaseFacultyScores(): Promise<Record<string, number>> {
-  const scores = getFacultyScores();
-  if (isDemoMode() || !supabase) return scores;
+  const scores: Record<string, number> = { ...DEFAULT_FACULTY_SCORES };
+  if (isDemoMode() || !supabase) return getFacultyScores();
 
   try {
     const { data, error } = await supabase
       .from('turtle_coins')
       .select('faculty, coin_count');
 
-    if (!error && data && data.length > 0) {
+    if (!error && data && Array.isArray(data)) {
       data.forEach((row: { faculty: string; coin_count: number }) => {
         if (row.faculty) {
-          scores[row.faculty] = Math.max(scores[row.faculty] || 0, Number(row.coin_count) || 0);
+          scores[row.faculty] = Number(row.coin_count) || 0;
         }
       });
       if (typeof window !== 'undefined') {
@@ -173,7 +169,7 @@ export async function recordCoinToss(faculty: string, count: number): Promise<vo
       .eq('faculty', faculty)
       .maybeSingle();
 
-    const currentCount = Number(cur?.coin_count) || (DEFAULT_FACULTY_SCORES[faculty] || 0);
+    const currentCount = Number(cur?.coin_count) || 0;
     const newTotal = currentCount + count;
 
     await supabase
@@ -255,7 +251,7 @@ export function subscribeTurtleCoins(onPulse: (pulse: TurtleCoinPulse) => void):
     }
   }
 
-  // 2. Listen via Supabase Realtime
+  // 2. Listen via Supabase Realtime Broadcast
   let ch: any = null;
   if (!isDemoMode() && supabase) {
     try {
@@ -268,11 +264,41 @@ export function subscribeTurtleCoins(onPulse: (pulse: TurtleCoinPulse) => void):
         }).subscribe();
       }
     } catch (err) {
-      console.warn('Turtle coin subscribe error:', err);
+      console.warn('Turtle coin broadcast subscribe error:', err);
+    }
+  }
+
+  // 3. Listen to Supabase Postgres Changes on turtle_coins table
+  let pgCh: any = null;
+  if (!isDemoMode() && supabase) {
+    try {
+      pgCh = supabase
+        .channel('public:turtle_coins_table')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'turtle_coins' },
+          (payload: any) => {
+            const row = payload.new as { faculty?: string; coin_count?: number };
+            if (row && row.faculty) {
+              onPulse({
+                faculty: row.faculty,
+                coinsAdded: 0,
+                playerId: '',
+                nickname: '',
+                timestamp: Date.now(),
+                totalCoins: Number(row.coin_count) || 0,
+              });
+            }
+          }
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn('Turtle coin pg subscribe error:', err);
     }
   }
 
   return () => {
     if (bc) bc.close();
+    if (pgCh && supabase) supabase.removeChannel(pgCh);
   };
 }
