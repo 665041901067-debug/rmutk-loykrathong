@@ -371,3 +371,107 @@ export function broadcastMemberJoined(partyCode: string, krathong: Krathong): vo
     } catch {}
   }
 }
+
+export interface BlessUpdatePayload {
+  krathongId: string;
+  blessCount: number;
+  timestamp: number;
+}
+
+/**
+ * เผยแพร่ยอดกดใจ (Blessing) แบบ Realtime ไปยังทุกเครื่องทันที
+ */
+export function broadcastBlessUpdate(krathongId: string, blessCount: number): void {
+  const payload: BlessUpdatePayload = {
+    krathongId,
+    blessCount,
+    timestamp: Date.now(),
+  };
+
+  // 1. Cross-tab in same browser
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    try {
+      const bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+      bc.postMessage({ type: 'BLESS_UPDATE', payload });
+      setTimeout(() => bc.close(), 1000);
+    } catch {}
+  }
+
+  // 2. Storage event
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('rmutk_bless_ping', JSON.stringify(payload));
+    } catch {}
+  }
+
+  // 3. Supabase Realtime Broadcast to everyone online
+  if (!isDemoMode() && supabase) {
+    try {
+      const ch = getOrCreateLanternChannel();
+      if (ch) {
+        ch.send({
+          type: 'broadcast',
+          event: 'bless_update',
+          payload,
+        });
+      }
+    } catch (err) {
+      console.warn('Bless update broadcast error:', err);
+    }
+  }
+}
+
+/**
+ * สมัครรับฟังการอัปเดตยอดกดใจแบบ Realtime จากทุกเครื่อง
+ */
+export function subscribeBlessUpdates(onUpdate: (payload: BlessUpdatePayload) => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  // 1. Listen via BroadcastChannel
+  let bc: BroadcastChannel | null = null;
+  if ('BroadcastChannel' in window) {
+    try {
+      bc = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'BLESS_UPDATE' && event.data?.payload) {
+          onUpdate(event.data.payload);
+        }
+      };
+    } catch {
+      bc = null;
+    }
+  }
+
+  // 2. Listen via Storage event
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === 'rmutk_bless_ping' && e.newValue) {
+      try {
+        const item = JSON.parse(e.newValue) as BlessUpdatePayload;
+        onUpdate(item);
+      } catch {}
+    }
+  };
+  window.addEventListener('storage', handleStorage);
+
+  // 3. Listen via Supabase Realtime Broadcast
+  let ch: any = null;
+  if (!isDemoMode() && supabase) {
+    try {
+      ch = getOrCreateLanternChannel();
+      if (ch) {
+        ch.on('broadcast', { event: 'bless_update' }, (msg: any) => {
+          if (msg.payload && msg.payload.krathongId) {
+            onUpdate(msg.payload as BlessUpdatePayload);
+          }
+        }).subscribe();
+      }
+    } catch (err) {
+      console.warn('Supabase bless subscribe error:', err);
+    }
+  }
+
+  return () => {
+    window.removeEventListener('storage', handleStorage);
+    if (bc) bc.close();
+  };
+}

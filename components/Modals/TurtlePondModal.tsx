@@ -11,7 +11,6 @@ import {
   Flame,
   Award,
   Trophy,
-  Heart,
   ChevronRight,
   TrendingUp,
 } from 'lucide-react';
@@ -23,6 +22,8 @@ import {
   saveTurtleProfile,
   getFacultyScores,
   addCoinsToFaculty,
+  fetchSupabaseFacultyScores,
+  recordCoinToss,
   broadcastCoinPulse,
   subscribeTurtleCoins,
   TurtleProfile,
@@ -91,6 +92,11 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
       const saved = localStorage.getItem('rmutk_turtle_coins');
       if (saved) setMyCoins(parseInt(saved, 10) || 0);
     } catch {}
+
+    // ดึงคะแนนสะสมสดล่าสุดจากฐานข้อมูล Supabase
+    fetchSupabaseFacultyScores().then((scores) => {
+      if (scores) setFacultyScores(scores);
+    });
   }, [isOpen]);
 
   // Real-time synchronization of coin pulses across all devices
@@ -105,7 +111,7 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
     return () => unsubscribe();
   }, []);
 
-  // Flush debounced coin pulses to realtime broadcast channel
+  // Flush debounced coin pulses to realtime broadcast channel & Supabase
   const flushCoinPulse = (coinsAdded: number) => {
     if (coinsAdded <= 0) return;
     broadcastCoinPulse({
@@ -115,6 +121,7 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
       nickname: profile.nickname,
       timestamp: Date.now(),
     });
+    recordCoinToss(profile.faculty, coinsAdded);
   };
 
   if (!isOpen) return null;
@@ -126,11 +133,6 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
   const sortedFaculties = Object.entries(facultyScores)
     .map(([faculty, coins]) => ({ faculty, coins }))
     .sort((a, b) => b.coins - a.coins);
-
-  // Top blessed krathongs leaderboard (ดึงจากฐานข้อมูลจริง 76+ ใบ เหมือนในรูปตัวอย่าง)
-  const topBlessedKrathongs = [...krathongs]
-    .sort((a, b) => (b.bless_count || 0) - (a.bless_count || 0))
-    .slice(0, 5);
 
   // Anti-F Protection Tier
   const getProtectionRank = (coins: number) => {
@@ -616,68 +618,6 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
                     </div>
                   );
                 })}
-              </div>
-            </div>
-
-            {/* Section 2: กระทงที่ได้ใจมากที่สุด (Top Hearted Krathongs from Database) */}
-            <div className="space-y-2.5 pt-2">
-              <div className="flex items-center justify-between pb-1 border-b border-white/10">
-                <div className="flex items-center gap-1.5">
-                  <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
-                  <h4 className="text-xs sm:text-sm font-bold text-white">
-                    กระทงที่ได้ใจมากที่สุด
-                  </h4>
-                </div>
-                <span className="text-[10px] text-slate-400">จากสระน้ำ มทร.</span>
-              </div>
-
-              <div className="space-y-1.5">
-                {topBlessedKrathongs.length === 0 ? (
-                  <div className="text-center py-6 text-slate-400 text-xs">
-                    ยังไม่มีกระทงที่ได้รับหัวใจ
-                  </div>
-                ) : (
-                  topBlessedKrathongs.map((k, index) => (
-                    <div
-                      key={k.id}
-                      onClick={() => {
-                        if (onSelectKrathong) {
-                          onSelectKrathong(k);
-                          onClose();
-                        }
-                      }}
-                      className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 hover:border-amber-400/30 hover:bg-white/[0.06] transition-all flex items-center justify-between gap-2 cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <span
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
-                            index === 0
-                              ? 'bg-rose-500/30 text-rose-200 border border-rose-400/40'
-                              : 'bg-white/10 text-slate-400'
-                          }`}
-                        >
-                          {index + 1}
-                        </span>
-
-                        {/* Krathong details */}
-                        <div className="truncate">
-                          <p className="text-xs text-slate-200 line-clamp-1 leading-snug group-hover:text-amber-200 transition-colors">
-                            &quot;{k.wish}&quot;
-                          </p>
-                          <span className="text-[10px] text-slate-400 truncate block">
-                            {k.sender_name} • {k.faculty}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Heart tally badge */}
-                      <div className="flex items-center gap-1 text-rose-300 text-xs font-semibold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-400/20 flex-shrink-0">
-                        <Heart className="w-3 h-3 fill-rose-400" />
-                        <span>{k.bless_count || 0}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
               </div>
             </div>
           </div>

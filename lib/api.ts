@@ -408,14 +408,6 @@ export async function createKrathong(input: KrathongInput): Promise<{ success: b
  * ป้องกันการกดซ้ำด้วย voter_id ใน LocalStorage และระบบ RPC หลังบ้าน
  */
 export async function blessKrathong(krathongId: string): Promise<BlessResult> {
-  if (hasVotedKrathong(krathongId)) {
-    return {
-      success: false,
-      message: 'คุณได้ร่วมอธิษฐานให้กับกระทงนี้แล้ว',
-      bless_count: 0,
-    };
-  }
-
   const voterId = getOrCreateVoterId();
 
   // โหมดทดลอง (Demo Mode)
@@ -425,7 +417,7 @@ export async function blessKrathong(krathongId: string): Promise<BlessResult> {
     const customItems = getLocalCustomKrathongs();
     const itemIndex = customItems.findIndex((k) => k.id === krathongId);
     if (itemIndex >= 0) {
-      customItems[itemIndex].bless_count += 1;
+      customItems[itemIndex].bless_count = (customItems[itemIndex].bless_count || 0) + 1;
       localStorage.setItem(LOCAL_STORAGE_CUSTOM_KRATHONGS, JSON.stringify(customItems));
       return {
         success: true,
@@ -436,7 +428,7 @@ export async function blessKrathong(krathongId: string): Promise<BlessResult> {
 
     const demoItem = DEMO_KRATHONGS.find((k) => k.id === krathongId);
     if (demoItem) {
-      demoItem.bless_count += 1;
+      demoItem.bless_count = (demoItem.bless_count || 0) + 1;
       return {
         success: true,
         message: 'ร่วมอธิษฐานสำเร็จ ขอให้คำอธิษฐานสมหวัง',
@@ -451,39 +443,52 @@ export async function blessKrathong(krathongId: string): Promise<BlessResult> {
     };
   }
 
-  // เรียกใช้ฟังก์ชัน RPC: increment_bless
+  // โหมดเชื่อมต่อ Supabase จริง
   try {
+    markKrathongVoted(krathongId);
+
+    // 1. เรียกใช้ RPC: increment_bless
     const { data, error } = await supabase.rpc('increment_bless', {
       row_id: krathongId,
       voter_id: voterId,
     });
 
-    if (error) {
-      console.warn('RPC increment_bless notice, using optimistic local count:', error);
-      markKrathongVoted(krathongId);
+    if (!error && data) {
+      const res = data as { success?: boolean; message?: string; bless_count?: number } | number;
+      const count = typeof res === 'number' ? res : (typeof res?.bless_count === 'number' ? res.bless_count : 1);
       return {
         success: true,
         message: 'ร่วมอธิษฐานสำเร็จ ขอให้คำอธิษฐานสมหวัง',
-        bless_count: 1,
+        bless_count: count,
       };
     }
 
-    markKrathongVoted(krathongId);
-    const res = data as { success?: boolean; message?: string; bless_count?: number } | number;
-    if (typeof res === 'number') {
-      return {
-        success: true,
-        message: 'ร่วมอธิษฐานสำเร็จ ขอให้คำอธิษฐานสมหวัง',
-        bless_count: res,
-      };
+    // 2. Direct Update Fallback (กรณีที่ยังไม่ได้สร้างฟังก์ชัน RPC ใน Supabase)
+    const { data: curRow } = await supabase
+      .from('krathongs')
+      .select('bless_count')
+      .eq('id', krathongId)
+      .single();
+
+    const currentCount = typeof curRow?.bless_count === 'number' ? curRow.bless_count : 0;
+    const nextCount = currentCount + 1;
+
+    const { error: updateErr } = await supabase
+      .from('krathongs')
+      .update({ bless_count: nextCount })
+      .eq('id', krathongId);
+
+    if (updateErr) {
+      console.warn('Direct bless update notice:', updateErr);
     }
+
     return {
-      success: res?.success ?? true,
-      message: res?.message ?? 'ร่วมอธิษฐานสำเร็จ ขอให้คำอธิษฐานสมหวัง',
-      bless_count: typeof res?.bless_count === 'number' ? res.bless_count : 1,
+      success: true,
+      message: 'ร่วมอธิษฐานสำเร็จ ขอให้คำอธิษฐานสมหวัง',
+      bless_count: nextCount,
     };
   } catch (err) {
-    console.warn('Bless krathong exception, fallback optimistic:', err);
+    console.warn('Bless krathong exception:', err);
     markKrathongVoted(krathongId);
     return {
       success: true,

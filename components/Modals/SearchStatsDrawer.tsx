@@ -13,6 +13,7 @@ interface SearchStatsDrawerProps {
   krathongs: Krathong[];
   onSelectKrathong: (krathong: Krathong) => void;
   initialTab?: 'search' | 'stats' | 'my-krathongs';
+  onBless?: (krathongId: string) => Promise<unknown> | void;
 }
 
 export const SearchStatsDrawer: React.FC<SearchStatsDrawerProps> = ({
@@ -21,6 +22,7 @@ export const SearchStatsDrawer: React.FC<SearchStatsDrawerProps> = ({
   krathongs,
   onSelectKrathong,
   initialTab = 'search',
+  onBless,
 }) => {
   const [activeTab, setActiveTab] = useState<'search' | 'stats' | 'my-krathongs'>(initialTab);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -248,10 +250,18 @@ export const SearchStatsDrawer: React.FC<SearchStatsDrawerProps> = ({
                         <span className="text-amber-200/70 font-medium">
                           {WISH_CATEGORIES[k.wish_category]?.name}
                         </span>
-                        <span className="flex items-center gap-1 text-rose-300">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onBless) onBless(k.id);
+                          }}
+                          className="flex items-center gap-1 text-rose-300 hover:text-rose-200 active:scale-95 transition-all bg-rose-500/10 hover:bg-rose-500/20 px-2 py-0.5 rounded-full border border-rose-400/20 cursor-pointer"
+                          title="ส่งใจ / ร่วมอธิษฐาน"
+                        >
                           <Heart className="w-3 h-3 fill-rose-400/80" />
                           <span>{k.bless_count || 0}</span>
-                        </span>
+                        </button>
                       </div>
                     </div>
                   ))
@@ -485,10 +495,18 @@ export const SearchStatsDrawer: React.FC<SearchStatsDrawerProps> = ({
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 text-rose-300 text-xs font-semibold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-400/20 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onBless) onBless(k.id);
+                        }}
+                        className="flex items-center gap-1 text-rose-300 hover:text-rose-200 active:scale-95 transition-all text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 px-2 py-0.5 rounded-full border border-rose-400/20 flex-shrink-0 cursor-pointer"
+                        title="ส่งใจ / ร่วมอธิษฐาน"
+                      >
                         <Heart className="w-3 h-3 fill-rose-400" />
                         <span>{k.bless_count || 0}</span>
-                      </div>
+                      </button>
                     </div>
                   ))}
                 </div>

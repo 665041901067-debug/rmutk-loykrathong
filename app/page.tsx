@@ -65,6 +65,8 @@ import {
   broadcastMemberJoined,
   broadcastSkyLantern,
   subscribeSkyLanterns,
+  broadcastBlessUpdate,
+  subscribeBlessUpdates,
 } from '@/lib/partySync';
 
 function LoyKrathongApp() {
@@ -351,6 +353,23 @@ function LoyKrathongApp() {
     return () => unsubscribe();
   }, []);
 
+  // 3.4 Real-time Heart / Blessings Sync across all connected users
+  useEffect(() => {
+    const unsubscribe = subscribeBlessUpdates((update) => {
+      setAllKrathongsDatabase((prev) =>
+        prev.map((k) => (k.id === update.krathongId ? { ...k, bless_count: update.blessCount } : k))
+      );
+      setPondKrathongs((prev) =>
+        prev.map((k) => (k.id === update.krathongId ? { ...k, bless_count: update.blessCount } : k))
+      );
+      setSelectedKrathong((prev) =>
+        prev && prev.id === update.krathongId ? { ...prev, bless_count: update.blessCount } : prev
+      );
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // 4. Handle Create Krathong
   const handleCreateKrathong = async (input: KrathongInput) => {
     const result = await createKrathong(input);
@@ -468,6 +487,7 @@ function LoyKrathongApp() {
       if (selectedKrathong && selectedKrathong.id === id) {
         setSelectedKrathong((prev) => (prev ? { ...prev, bless_count: res.bless_count } : null));
       }
+      broadcastBlessUpdate(id, res.bless_count);
     }
     return res;
   };
@@ -983,6 +1003,7 @@ function LoyKrathongApp() {
           setFocusedKrathongId(k.id);
         }}
         initialTab={searchDrawerInitialTab}
+        onBless={handleBless}
       />
 
       <WishCardModal

@@ -2,9 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://rmutk-loykrathong.vercel.app'),
   title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ | สระน้ำแห่งคำอธิษฐาน',
   description:
-    'ร่วมสืบสานประเพณีลอยกระทงออนไลน์ มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ (RMUTK) ณ สระน้ำแห่งคำอธิษฐาน ร่วมเขียนคำอธิษฐาน จุดประทีป และเสี่ยงทายเซียมซี',
+    'ร่วมสืบสานประเพณีลอยกระทงออนไลน์ มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ (RMUTK) ณ สระน้ำแห่งคำอธิษฐาน ร่วมเขียนคำอธิษฐาน จุดประทีป ปล่อยโคมลอย โยนเหรียญบ่อเต่าแก้เคล็ด และเสี่ยงทายเซียมซี',
   keywords: [
     'ลอยกระทง',
     'ลอยกระทงออนไลน์',
@@ -12,21 +13,44 @@ export const metadata: Metadata = {
     'RMUTK',
     'สระน้ำแห่งคำอธิษฐาน',
     'ราชมงคลกรุงเทพ',
+    'บ่อเต่าแก้เคล็ด',
+    'ปล่อยโคมลอย',
     'เซียมซี',
+    'ลอยกระทง 2569',
   ],
-  authors: [{ name: 'Rajamangala University of Technology Krungthep' }],
+  authors: [{ name: 'มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ (RMUTK)' }],
+  alternates: {
+    canonical: 'https://rmutk-loykrathong.vercel.app',
+  },
   icons: {
     icon: [
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
       { url: '/icon.svg', type: 'image/svg+xml' },
     ],
-    shortcut: '/icon.svg',
-    apple: '/icon.svg',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
   },
   openGraph: {
     title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ | สระน้ำแห่งคำอธิษฐาน',
-    description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐานและเสี่ยงทายเซียมซี',
+    description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐาน โยนเหรียญบ่อเต่า และเสี่ยงทายเซียมซีแบบเรียลไทม์',
+    url: 'https://rmutk-loykrathong.vercel.app',
+    siteName: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
     type: 'website',
     locale: 'th_TH',
+    images: [
+      {
+        url: '/icon.png',
+        width: 512,
+        height: 512,
+        alt: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
+    description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐาน และโยนเหรียญบ่อเต่าแก้เคล็ด',
+    images: ['/icon.png'],
   },
 };
 
@@ -44,8 +68,30 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
+    url: 'https://rmutk-loykrathong.vercel.app',
+    description:
+      'ร่วมสืบสานประเพณีลอยกระทงออนไลน์ มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ ณ สระน้ำแห่งคำอธิษฐาน',
+    applicationCategory: 'EntertainmentApplication',
+    operatingSystem: 'All',
+    creator: {
+      '@type': 'EducationalOrganization',
+      name: 'มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ (RMUTK)',
+      url: 'https://www.rmutk.ac.th',
+    },
+  };
+
   return (
     <html lang="th" className="dark scroll-smooth">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-screen bg-rmutk-midnight text-rmutk-ivory antialiased selection:bg-rmutk-gold selection:text-rmutk-midnight">
         {children}
       </body>

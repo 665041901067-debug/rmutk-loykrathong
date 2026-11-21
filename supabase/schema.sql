@@ -53,6 +53,12 @@ CREATE POLICY "Allow public insert for krathongs"
         char_length(wish) <= 140
     );
 
+DROP POLICY IF EXISTS "Allow public update bless_count for krathongs" ON public.krathongs;
+CREATE POLICY "Allow public update bless_count for krathongs"
+    ON public.krathongs FOR UPDATE
+    USING (true)
+    WITH CHECK (true);
+
 -- นโยบายสำหรับตาราง krathong_blessings
 DROP POLICY IF EXISTS "Allow public read for blessings" ON public.krathong_blessings;
 CREATE POLICY "Allow public read for blessings"
@@ -121,3 +127,14 @@ CREATE POLICY "Allow public insert/update for turtle_coins"
     ON public.turtle_coins FOR ALL
     USING (true)
     WITH CHECK (true);
+
+-- เปิดใช้งาน Realtime สำหรับ turtle_coins
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'turtle_coins'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.turtle_coins;
+    END IF;
+END $$;

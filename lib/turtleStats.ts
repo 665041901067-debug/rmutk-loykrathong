@@ -131,6 +131,66 @@ export function addCoinsToFaculty(faculty: string, count: number): Record<string
   return getFacultyScores();
 }
 
+/**
+ * ดึงคะแนนสะสมของแต่ละคณะจาก Supabase turtle_coins (ถ้ามี)
+ */
+export async function fetchSupabaseFacultyScores(): Promise<Record<string, number>> {
+  const scores = getFacultyScores();
+  if (isDemoMode() || !supabase) return scores;
+
+  try {
+    const { data, error } = await supabase
+      .from('turtle_coins')
+      .select('faculty, coin_count');
+
+    if (!error && data && data.length > 0) {
+      data.forEach((row: { faculty: string; coin_count: number }) => {
+        if (row.faculty) {
+          scores[row.faculty] = Math.max(scores[row.faculty] || 0, Number(row.coin_count) || 0);
+        }
+      });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.FACULTY_SCORES, JSON.stringify(scores));
+      }
+    }
+  } catch (err) {
+    console.warn('fetchSupabaseFacultyScores notice:', err);
+  }
+
+  return scores;
+}
+
+/**
+ * บันทึกคะแนนเพิ่มให้กับคณะบน Supabase turtle_coins
+ */
+export async function recordCoinToss(faculty: string, count: number): Promise<void> {
+  if (isDemoMode() || !supabase) return;
+
+  try {
+    const { data: cur } = await supabase
+      .from('turtle_coins')
+      .select('coin_count')
+      .eq('faculty', faculty)
+      .maybeSingle();
+
+    const currentCount = Number(cur?.coin_count) || (DEFAULT_FACULTY_SCORES[faculty] || 0);
+    const newTotal = currentCount + count;
+
+    await supabase
+      .from('turtle_coins')
+      .upsert(
+        {
+          faculty,
+          coin_count: newTotal,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'faculty' }
+      );
+  } catch (err) {
+    console.warn('recordCoinToss notice:', err);
+  }
+}
+
 // Supabase Realtime Channel Singleton for Turtle Pond Battle
 let turtleChannel: any = null;
 
