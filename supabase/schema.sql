@@ -101,3 +101,23 @@ $$;
 
 -- 5. เปิดใช้งาน Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE public.krathongs;
+
+-- 6. ตารางบันทึกเหรียญบ่อเต่ามงคลแยกตามคณะ (Popcat Style Leaderboard)
+CREATE TABLE IF NOT EXISTS public.turtle_coins (
+    faculty VARCHAR(100) PRIMARY KEY,
+    coin_count BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.turtle_coins ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read for turtle_coins" ON public.turtle_coins;
+CREATE POLICY "Allow public read for turtle_coins"
+    ON public.turtle_coins FOR SELECT
+    USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert/update for turtle_coins" ON public.turtle_coins;
+CREATE POLICY "Allow public insert/update for turtle_coins"
+    ON public.turtle_coins FOR ALL
+    USING (true)
+    WITH CHECK (true);

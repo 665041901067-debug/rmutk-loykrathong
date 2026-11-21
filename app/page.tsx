@@ -1012,6 +1012,11 @@ function LoyKrathongApp() {
       <TurtlePondModal
         isOpen={isTurtleModalOpen}
         onClose={() => setIsTurtleModalOpen(false)}
+        krathongs={allKrathongsDatabase}
+        onSelectKrathong={(k) => {
+          setSelectedKrathong(k);
+          setFocusedKrathongId(k.id);
+        }}
       />
     </div>
   );

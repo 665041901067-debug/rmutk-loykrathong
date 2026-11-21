@@ -15,6 +15,13 @@ export const metadata: Metadata = {
     'เซียมซี',
   ],
   authors: [{ name: 'Rajamangala University of Technology Krungthep' }],
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
   openGraph: {
     title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ | สระน้ำแห่งคำอธิษฐาน',
     description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐานและเสี่ยงทายเซียมซี',
