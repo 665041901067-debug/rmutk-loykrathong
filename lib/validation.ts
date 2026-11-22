@@ -63,7 +63,7 @@ export function validateKrathongInput(input: KrathongInput): ValidationResult {
   }
 
   if (!input.faculty || !FACULTIES.includes(input.faculty)) {
-    errors.faculty = 'กรุณาเลือกคณะหรือหน่วยงานที่สังกัด';
+    errors.faculty = 'กรุณาเลือกคณะของคุณก่อนปล่อยกระทงนะ';
   }
 
   const wish = sanitizeText(input.wish);

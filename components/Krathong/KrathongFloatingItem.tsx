@@ -48,7 +48,8 @@ export const KrathongFloatingItem: React.FC<KrathongFloatingItemProps> = memo(
         style={{
           left: `${krathong.pos_x}%`,
           top: `${Math.min(71, krathong.pos_y)}%`,
-          transform: `translate(-50%, -50%) scale(${krathong.scale || 1})`,
+          transform: `translate3d(-50%, -50%, 0) scale(${krathong.scale || 1})`,
+          willChange: 'transform',
           zIndex,
           minWidth: '48px',
           minHeight: '48px',

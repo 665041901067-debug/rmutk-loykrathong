@@ -32,6 +32,8 @@ import {
   Users,
   Image as ImageIcon,
   Share2,
+  PenLine,
+  ChevronDown,
 } from 'lucide-react';
 
 interface KrathongCustomizerProps {
@@ -354,7 +356,7 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     () => 'RMUTK-' + Math.floor(100 + Math.random() * 900)
   );
   const [isCopiedPartyLink, setIsCopiedPartyLink] = useState<boolean>(false);
-  const [faculty, setFaculty] = useState<string>(FACULTIES[0]);
+  const [faculty, setFaculty] = useState<string>('');
   const [wishCategory, setWishCategory] = useState<WishCategory>('study');
   const [wish, setWish] = useState<string>(GENZ_WISH_PRESETS.study.presets[0]);
 
@@ -392,6 +394,7 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       setIsFloatingCeremony(false);
       setShowHoldTip(false);
       setIsLit(true); // จุดเทียนอัตโนมัติตั้งแต่เริ่ม
+      setFaculty(''); // เริ่มต้นให้ผู้ใช้เลือกคณะจริงของตนเอง
     }
   }, [isOpen]);
 
@@ -480,6 +483,11 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     };
     if (facultyMap[selectedBase]) {
       setFaculty(facultyMap[selectedBase]!);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.faculty;
+        return next;
+      });
     }
   };
 
@@ -532,6 +540,14 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       if (validation.errors.sender_name) {
         setTimeout(() => {
           const el = document.getElementById('sender-name');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.focus();
+          }
+        }, 100);
+      } else if (validation.errors.faculty) {
+        setTimeout(() => {
+          const el = document.getElementById('faculty-select');
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             el.focus();
@@ -1309,22 +1325,62 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
 
               {/* 3. Faculty Dropdown */}
               <div>
-                <label htmlFor="faculty-select" className="block text-xs sm:text-sm font-semibold text-slate-200 mb-1">
-                  คณะของคุณใน มทร.กรุงเทพ
-                  <span className="text-rose-400 ml-1">*</span>
-                </label>
-                <select
-                  id="faculty-select"
-                  value={faculty}
-                  onChange={(e) => setFaculty(e.target.value)}
-                  className="w-full h-11 bg-slate-900/90 border border-white/15 rounded-2xl px-4 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 cursor-pointer"
-                >
-                  {FACULTIES.map((fac) => (
-                    <option key={fac} value={fac} className="bg-slate-900 text-white py-1">
-                      {fac}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="faculty-select" className="text-xs sm:text-sm font-semibold text-slate-200 flex items-center gap-1">
+                    <span>คณะของคุณใน มทร.กรุงเทพ</span>
+                    <span className="text-rose-400 font-bold">*</span>
+                  </label>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                      errors.faculty
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
+                        : faculty
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/30'
+                        : 'bg-amber-400/15 text-amber-300 border-amber-300/30'
+                    }`}
+                  >
+                    {faculty ? 'เลือกแล้ว' : 'จำเป็นต้องเลือกคณะ'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    id="faculty-select"
+                    value={faculty}
+                    onChange={(e) => {
+                      setFaculty(e.target.value);
+                      if (errors.faculty && e.target.value) {
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.faculty;
+                          return next;
+                        });
+                      }
+                    }}
+                    className={`w-full h-11 rounded-2xl px-4 pr-10 text-xs sm:text-sm transition-all cursor-pointer appearance-none ${
+                      errors.faculty
+                        ? 'bg-rose-500/10 border-2 border-rose-500 text-white shadow-[0_0_16px_rgba(244,63,94,0.35)] ring-2 ring-rose-500/40'
+                        : !faculty
+                        ? 'bg-amber-400/10 border-2 border-amber-400/60 text-amber-200 font-medium'
+                        : 'bg-slate-900/90 border border-white/15 text-white focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50'
+                    }`}
+                  >
+                    <option value="" disabled className="bg-slate-900 text-slate-400">
+                      -- กรุณาเลือกคณะของคุณ (แตะเพื่อเลือก) --
                     </option>
-                  ))}
-                </select>
+                    {FACULTIES.map((fac) => (
+                      <option key={fac} value={fac} className="bg-slate-900 text-white py-1.5">
+                        {fac}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-amber-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                {errors.faculty && (
+                  <div className="mt-1.5 p-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-1.5 animate-bounce">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-rose-400" />
+                    <span>{errors.faculty || 'กรุณาเลือกคณะของคุณก่อนปล่อยกระทงนะ'}</span>
+                  </div>
+                )}
               </div>
 
               {/* 4. Wish Category Pills */}
@@ -1354,45 +1410,56 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
                 </div>
               </div>
 
-              {/* Quick Gen-Z Wish Presets */}
-              <div className="space-y-1.5">
-                <span className="text-xs text-slate-400 block font-medium">คำขอด่วนยอดฮิต (แตะเพื่อเลือก):</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {GENZ_WISH_PRESETS[wishCategory].presets.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setWish(preset)}
-                      className={`text-left text-xs sm:text-sm p-2.5 sm:p-3 rounded-xl transition-all border flex items-center leading-snug break-words cursor-pointer ${
-                        wish === preset
-                          ? 'bg-amber-400/18 border-amber-400/60 text-amber-200 font-medium shadow-sm shadow-amber-500/10'
-                          : 'bg-white/[0.04] border-white/10 text-slate-300 hover:bg-white/[0.08]'
-                      }`}
-                    >
-                      <span>{preset}</span>
-                    </button>
-                  ))}
+              {/* Quick Gen-Z Wish Selector - Minimal Clean Dropdown */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-300 font-medium">คำขอยอดฮิตประจำหมวด ({GENZ_WISH_PRESETS[wishCategory].label}):</span>
+                  <span className="text-[11px] text-amber-300/70">แตะเพื่อดึงลงช่องพิมพ์</span>
+                </div>
+                <div className="relative">
+                  <select
+                    value={GENZ_WISH_PRESETS[wishCategory].presets.includes(wish) ? wish : ''}
+                    onChange={(e) => {
+                      if (e.target.value) setWish(e.target.value);
+                    }}
+                    className="w-full h-10.5 bg-slate-800/90 border border-white/20 hover:border-amber-400/50 rounded-2xl px-4 pr-10 text-xs sm:text-sm text-amber-200 font-medium focus:outline-none focus:ring-2 focus:ring-amber-400/50 appearance-none cursor-pointer"
+                  >
+                    <option value="" className="bg-slate-900 text-slate-400">
+                      -- แตะเพื่อเลือกคำขอด่วนยอดฮิตในหมวดนี้ --
+                    </option>
+                    {GENZ_WISH_PRESETS[wishCategory].presets.map((preset, idx) => (
+                      <option key={idx} value={preset} className="bg-slate-900 text-white py-1.5">
+                        {preset}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-amber-300 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
-              {/* Wish Textarea */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label htmlFor="wish-input" className="text-xs sm:text-sm font-medium text-slate-300">
-                    หรือเขียนคำขอตามใจคุณ:
+              {/* Wish Textarea - Prominent & Clearly Editable */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="wish-input" className="text-xs sm:text-sm font-bold text-amber-300 flex items-center gap-1.5">
+                    <PenLine className="w-3.5 h-3.5 text-amber-400" />
+                    <span>เขียนคำอธิษฐานของคุณ (แตะพิมพ์ที่นี่ได้เลย)</span>
+                    <span className="text-rose-400">*</span>
                   </label>
-                  <span className="text-xs text-slate-400">{wish.length}/140</span>
+                  <span className="text-xs text-amber-300/80 font-semibold">{wish.length}/140</span>
                 </div>
                 <textarea
                   id="wish-input"
-                  rows={2}
+                  rows={3}
                   maxLength={140}
                   value={wish}
                   onChange={(e) => setWish(e.target.value)}
-                  placeholder="เขียนคำขอของคุณที่นี่..."
-                  className="w-full bg-white/[0.04] border border-white/15 rounded-2xl px-4 py-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 resize-none font-thai"
+                  placeholder="แตะที่นี่เพื่อพิมพ์คำขอของคุณ เช่น ขอให้สอบผ่านฉลุย เกรด 4.00, มีแฟนน่ารัก..."
+                  className="w-full p-3.5 rounded-2xl bg-slate-800/95 border-2 border-amber-400/60 hover:border-amber-400 focus:border-amber-400 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-amber-400/25 resize-none font-thai shadow-[0_0_18px_rgba(251,191,36,0.15)] font-medium leading-relaxed"
                 />
                 {errors.wish && <p className="text-xs text-rose-400 mt-1">{errors.wish}</p>}
+                <p className="text-[11px] text-slate-400">
+                  คำอธิษฐานจะถูกสลักและลอยไปพร้อมกระทงในสระน้ำ มทร.กรุงเทพ แบบเรียลไทม์
+                </p>
               </div>
 
                 {/* Server Error Message */}
