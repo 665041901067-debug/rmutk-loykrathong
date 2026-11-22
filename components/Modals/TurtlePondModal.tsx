@@ -12,6 +12,7 @@ import {
   Award,
   Trophy,
   ChevronRight,
+  ChevronDown,
   TrendingUp,
 } from 'lucide-react';
 import { sound } from '@/lib/sound';
@@ -335,23 +336,35 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
         {/* TAB 1: POND & INTERACTIVE TAPPING */}
         {activeTab === 'pond' && (
           <div className="p-3 sm:p-4.5 flex flex-col gap-2.5 sm:gap-3 overflow-y-auto no-scrollbar">
-            {/* Faculty Selector Pill (Login-free identification) */}
-            <div className="flex items-center justify-between bg-white/[0.03] border border-white/10 rounded-xl px-3 py-1.5 text-xs">
-              <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-                โยนแก้เคล็ดในนาม:
-              </span>
-              <select
-                value={profile.faculty}
-                onChange={(e) => handleChangeFaculty(e.target.value)}
-                className="bg-transparent text-teal-200 font-semibold text-xs border-none focus:outline-none cursor-pointer"
-              >
-                {FACULTIES.map((fac) => (
-                  <option key={fac} value={fac} className="bg-slate-900 text-slate-100">
-                    {fac}
-                  </option>
-                ))}
-              </select>
+            {/* Faculty Selector: High-Visibility & Obvious Interactive Dropdown (สว่างชัดเจนบนมือถือ) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-teal-950/90 via-slate-900 to-teal-950/90 border-2 border-teal-400/70 rounded-2xl p-2.5 sm:px-3.5 sm:py-2.5 shadow-[0_0_18px_rgba(45,212,191,0.25)]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-ping flex-shrink-0" />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-bold text-white">โยนเหรียญในนาม:</span>
+                  <span className="text-[10px] font-semibold text-teal-200 bg-teal-400/20 px-2 py-0.5 rounded-full border border-teal-400/40">
+                    แตะเพื่อเปลี่ยนคณะ
+                  </span>
+                </div>
+              </div>
+
+              <div className="relative w-full sm:w-auto">
+                <select
+                  value={profile.faculty}
+                  onChange={(e) => handleChangeFaculty(e.target.value)}
+                  className="w-full sm:w-auto appearance-none bg-teal-500/25 hover:bg-teal-500/35 active:scale-98 border border-teal-300/80 text-teal-100 font-bold text-xs sm:text-sm rounded-xl pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer shadow-md"
+                  aria-label="เลือกคณะเพื่อสะสมเหรียญ"
+                >
+                  {FACULTIES.map((fac) => (
+                    <option key={fac} value={fac} className="bg-slate-900 text-slate-100 py-1">
+                      {fac}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-teal-300">
+                  <ChevronDown className="w-4 h-4 stroke-[2.5]" />
+                </div>
+              </div>
             </div>
 
             {/* INTERACTIVE POND WATER VIEWPORT */}

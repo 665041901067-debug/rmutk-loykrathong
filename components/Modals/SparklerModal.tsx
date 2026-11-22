@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Sparkles, Flame, RotateCcw, Users } from 'lucide-react';
+import { X, Sparkles, Flame, RotateCcw, Users, GraduationCap, ChevronDown, Check } from 'lucide-react';
 import { generateUUID } from '@/lib/storage';
-import { getTurtleProfile } from '@/lib/turtleStats';
+import { getTurtleProfile, saveTurtleProfile, TurtleProfile } from '@/lib/turtleStats';
+import { FACULTIES } from '@/data/faculties';
 import {
   broadcastSparklerMove,
   subscribeLiveSparklers,
@@ -38,14 +39,23 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
   // Position of sparkler tip (default near center bottom)
   const [stickPos, setStickPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  // Faculty and Profile State (Allows user to choose their real faculty!)
+  const [profile, setProfile] = useState<TurtleProfile>(() => getTurtleProfile());
+  const [isFacultyPickerOpen, setIsFacultyPickerOpen] = useState<boolean>(false);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animFrameRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const noiseNodeRef = useRef<AudioNode | null>(null);
   const myIdRef = useRef<string>(generateUUID());
-  const profileRef = useRef(getTurtleProfile());
+  const profileRef = useRef(profile);
   const lastBroadcastRef = useRef<number>(0);
+
+  // Keep profileRef in sync
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   // Sound generator for crackling sparkler using Web Audio API
   const startCrackleSound = () => {
@@ -106,7 +116,9 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
         x: window.innerWidth * 0.5,
         y: window.innerHeight * 0.55,
       });
-      profileRef.current = getTurtleProfile();
+      const p = getTurtleProfile();
+      setProfile(p);
+      profileRef.current = p;
     }
 
     getSparklerCampusTotal().then((tot) => setCampusTotal(tot));
@@ -185,6 +197,28 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
       stopCrackleSound();
     };
   }, [isLit, isBurnedOut]);
+
+  // Handle Faculty Change
+  const handleSelectFaculty = (selectedFac: string) => {
+    const updated = saveTurtleProfile({ faculty: selectedFac });
+    setProfile(updated);
+    profileRef.current = updated;
+    setIsFacultyPickerOpen(false);
+
+    // If currently burning, update broadcast immediately
+    if (isLit && !isBurnedOut) {
+      broadcastSparklerMove({
+        id: myIdRef.current,
+        x: (stickPos.x / (window.innerWidth || 1)) * 100,
+        y: (stickPos.y / (window.innerHeight || 1)) * 100,
+        playerName: updated.nickname,
+        faculty: updated.faculty,
+        isBurning: true,
+        burnProgress,
+        lastUpdated: Date.now(),
+      });
+    }
+  };
 
   // Light up sparkler
   const handleIgnite = async () => {
@@ -265,9 +299,9 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
       if (isLit && !isBurnedOut) {
         // Calculate dynamic burning tip height along the stick
         // Total stick length is 220px, pyrotechnic section is top 145px
-        const burnOffset = (burnProgress / 100) * 145;
-        const tipX = stickPos.x;
-        const tipY = stickPos.y - 120 + burnOffset;
+        const currentBurnOffset = (burnProgress / 100) * 145;
+        const currentTipX = stickPos.x;
+        const currentTipY = stickPos.y - 120 + currentBurnOffset;
 
         // Emit 5-8 sparks per frame
         for (let i = 0; i < 7; i++) {
@@ -275,8 +309,8 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
           const speed = 2 + Math.random() * 6.5;
           const colors = ['#FEF08A', '#FDE047', '#F59E0B', '#F97316', '#FFFFFF'];
           particlesRef.current.push({
-            x: tipX + (Math.random() - 0.5) * 6,
-            y: tipY + (Math.random() - 0.5) * 6,
+            x: currentTipX + (Math.random() - 0.5) * 6,
+            y: currentTipY + (Math.random() - 0.5) * 6,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed + 0.8, // Gravity pull
             size: 1.2 + Math.random() * 2.2,
@@ -285,6 +319,16 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
             decay: 0.02 + Math.random() * 0.035,
           });
         }
+
+        // Draw local player label above burning tip
+        ctx.save();
+        ctx.font = 'bold 11px Tahoma, sans-serif';
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.95)';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(`${profileRef.current.nickname} (${profileRef.current.faculty})`, currentTipX, currentTipY - 24);
+        ctx.restore();
       }
 
       // 2. Render other players' live remote sparklers
@@ -365,8 +409,6 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
   // Top 145px: Pyrotechnic grey chemical coating (like in Image 3)
   // Bottom 75px: Bare steel wire handle
   const burnOffset = (burnProgress / 100) * 145;
-  const tipX = stickPos.x;
-  const tipY = stickPos.y - 120 + burnOffset;
 
   return (
     <div
@@ -385,19 +427,64 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
       />
 
       {/* TOP HEADER CONTROLS */}
-      <div className="relative z-30 p-3 sm:p-5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="relative z-30 p-3 sm:p-5 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Title Pill */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-xl border border-white/10 text-xs text-amber-200 shadow-md">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span className="font-bold">จุดไฟเย็นริมสระน้ำ มทร.</span>
           </div>
 
+          {/* Active online players count */}
           <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] text-slate-300">
             <Users className="w-3 h-3 text-cyan-300" />
             <span>เพื่อนกำลังจุด {activeCount} คน</span>
           </div>
+
+          {/* Faculty Selector Pill (เลือกคณะของตนเองได้) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsFacultyPickerOpen(!isFacultyPickerOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-950/80 hover:bg-teal-900 border border-teal-400/50 hover:border-teal-300 text-xs text-teal-200 font-semibold shadow-md active:scale-95 transition-all cursor-pointer"
+              title="แตะเพื่อเลือกคณะของคุณ"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-teal-300" />
+              <span>{profile.faculty}</span>
+              <ChevronDown className="w-3 h-3 text-teal-300" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isFacultyPickerOpen && (
+              <div className="absolute top-full left-0 mt-1.5 w-60 max-h-64 overflow-y-auto bg-slate-900/95 backdrop-blur-2xl border border-teal-400/40 rounded-2xl p-1.5 shadow-2xl z-50 no-scrollbar">
+                <div className="px-3 py-1.5 text-[11px] text-teal-300 font-bold border-b border-white/10 mb-1 flex items-center justify-between">
+                  <span>เลือกคณะสังกัดของคุณ</span>
+                  <span className="text-[10px] text-slate-400 font-normal">แตะเพื่อเปลี่ยน</span>
+                </div>
+                {FACULTIES.map((fac) => {
+                  const isSelected = profile.faculty === fac;
+                  return (
+                    <button
+                      key={fac}
+                      type="button"
+                      onClick={() => handleSelectFaculty(fac)}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-teal-400/20 text-teal-200 font-bold'
+                          : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <span>{fac}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-teal-300" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Close Button */}
         <button
           type="button"
           onClick={() => {
@@ -424,9 +511,9 @@ export const SparklerModal: React.FC<SparklerModalProps> = ({ isOpen, onClose })
           <defs>
             {/* Ambient Flame Glow */}
             <radialGradient id="sparklerGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#FEF08A" stop-opacity="0.9" />
-              <stop offset="40%" stop-color="#F59E0B" stop-opacity="0.5" />
-              <stop offset="100%" stop-color="#F59E0B" stop-opacity="0" />
+              <stop offset="0%" stopColor="#FEF08A" stopOpacity="0.9" />
+              <stop offset="40%" stopColor="#F59E0B" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity="0" />
             </radialGradient>
           </defs>
 

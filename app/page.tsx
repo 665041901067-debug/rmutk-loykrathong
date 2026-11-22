@@ -43,6 +43,8 @@ import { SkyLanternModal } from '@/components/Modals/SkyLanternModal';
 import { KhongkhaBlessingModal } from '@/components/Modals/KhongkhaBlessingModal';
 import { TurtlePondModal } from '@/components/Modals/TurtlePondModal';
 import { SparklerModal } from '@/components/Modals/SparklerModal';
+import { YouTubeBgmPlayer } from '@/components/Audio/YouTubeBgmPlayer';
+import { saveTurtleProfile } from '@/lib/turtleStats';
 import { bgm } from '@/lib/music';
 
 // Icons
@@ -108,8 +110,15 @@ function LoyKrathongApp() {
   const [isMusicPlaying, setIsMusicPlaying] = useState<boolean>(false);
 
   const handleToggleMusic = () => {
-    const nextPlaying = bgm.toggle();
+    const nextPlaying = !isMusicPlaying;
     setIsMusicPlaying(nextPlaying);
+    if (nextPlaying) {
+      bgm.start();
+      setNotification('กำลังบรรเลง: รำวงวันลอยกระทง (ระนาดเอก • Fino the Ranad)');
+      setTimeout(() => setNotification(null), 4500);
+    } else {
+      bgm.stop();
+    }
   };
 
   // Group Waiting Room & Story Generator Modals
@@ -390,6 +399,11 @@ function LoyKrathongApp() {
       setNewlyCreatedKrathong(created);
       setFocusedKrathongId(created.id);
       setJustLaunchedId(created.id);
+
+      // ซิงค์ชื่อและคณะที่ผู้ใช้เลือกเข้าสู่ระบบโปรไฟล์บ่อเต่าและจุดไฟเย็นอัตโนมัติ
+      if (created.faculty) {
+        saveTurtleProfile({ faculty: created.faculty, nickname: created.sender_name });
+      }
 
       if (input.mode === 'group') {
         const code = input.party_code || activePartyCode || 'RMUTK-' + Math.floor(100 + Math.random() * 900);
@@ -735,61 +749,86 @@ function LoyKrathongApp() {
         </PondScene>
       </div>
 
-      {/* 2. MINIMALIST FLOATING TOP CONTROLS (CLEAN SKY & STANDARDIZED GEN-Z CAPSULE) */}
+      {/* 2. MINIMALIST FLOATING TOP CONTROLS (STANDALONE INDIVIDUAL CAPSULES สไตล์ GEN-Z) */}
       <header className="relative z-20 flex items-center justify-end px-3.5 sm:px-6 py-2.5 sm:py-3 pointer-events-none">
-        {/* Top Right Quick Actions: Standardized Translucent Glass Capsule */}
-        <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-          {/* Search */}
+        {/* Top Right Quick Actions: Standalone Individual Capsule Pills (ปุ่มของใครของมันเหมือนด้านล่าง) */}
+        <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+          {/* 1. Search (ค้นหา) */}
           <button
             type="button"
             onClick={() => {
               setSearchDrawerInitialTab('search');
               setIsSearchDrawerOpen(true);
             }}
-            className="h-9 px-3 rounded-full hover:bg-white/10 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 cursor-pointer"
             aria-label="ค้นหากระทง"
           >
-            <Search className="w-4 h-4 text-slate-300" />
+            <Search className="w-3.5 h-3.5 text-slate-300" />
             <span>ค้นหา</span>
           </button>
 
-          {/* My Krathongs */}
+          {/* 2. Music Toggle (อยู่ข้างค้นหา ตามที่ขอ!) */}
+          <button
+            type="button"
+            onClick={handleToggleMusic}
+            className={`h-8 sm:h-9 px-3 sm:px-3.5 rounded-full border transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 text-xs sm:text-sm font-medium cursor-pointer active:scale-95 ${
+              isMusicPlaying
+                ? 'bg-amber-400/20 text-amber-200 border-amber-400/40 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
+                : 'bg-slate-900/75 text-slate-300 border-white/10 hover:text-white hover:border-white/20'
+            }`}
+            title={isMusicPlaying ? 'ปิดเพลงบรรเลง' : 'เปิดเพลงบรรเลง (Fino the Ranad)'}
+            aria-label="เปิดปิดเพลง"
+          >
+            {isMusicPlaying ? (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <span>เพลง: เปิด</span>
+              </>
+            ) : (
+              <>
+                <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+                <span>เพลง: ปิด</span>
+              </>
+            )}
+          </button>
+
+          {/* 3. My Krathongs (ของฉัน) */}
           <button
             type="button"
             onClick={() => {
               setSearchDrawerInitialTab('my-krathongs');
               setIsSearchDrawerOpen(true);
             }}
-            className="h-9 px-3 rounded-full hover:bg-white/10 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-95 cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 cursor-pointer"
             aria-label="กระทงของฉัน"
           >
-            <User className="w-4 h-4 text-amber-300" />
+            <User className="w-3.5 h-3.5 text-amber-300" />
             <span>ของฉัน</span>
           </button>
 
-          {/* Stats */}
+          {/* 4. Stats (สถิติ) */}
           <button
             type="button"
             onClick={() => {
               setSearchDrawerInitialTab('stats');
               setIsSearchDrawerOpen(true);
             }}
-            className="w-9 h-9 rounded-full hover:bg-white/10 text-slate-300 hover:text-white flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+            className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-slate-300 hover:text-white transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
             title="สถิติสระน้ำ"
             aria-label="ดูสถิติสระน้ำ"
           >
-            <BarChart3 className="w-4 h-4" />
+            <BarChart3 className="w-3.5 h-3.5" />
           </button>
 
-          {/* Font Size Toggle */}
+          {/* 5. Font Size Toggle (ปรับขนาดตัวอักษร) */}
           <button
             type="button"
             onClick={handleToggleFontSize}
-            className="w-9 h-9 rounded-full hover:bg-white/10 text-amber-300 text-xs font-bold flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+            className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-amber-300 text-xs font-bold transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
             title="ปรับขนาดตัวอักษร"
             aria-label="ปรับขนาดตัวอักษร"
           >
-            {fontSize === 'large' ? 'ก+' : 'ก'}
+            <span>{fontSize === 'large' ? 'ก+' : 'ก'}</span>
           </button>
         </div>
       </header>
@@ -854,7 +893,7 @@ function LoyKrathongApp() {
           </button>
         </div>
 
-        {/* Secondary Actions: Individual Standalone Gen-Z Glassmorphism Pills (แยกเป็นปุ่มใครปุ่มมันเหมือนรูปที่ 2) */}
+        {/* Secondary Actions: Individual Standalone Gen-Z Glassmorphism Pills (เรียง: ปล่อยโคม, จุดไฟเย็น, บ่อเต่า, พรพระแม่, เซียมซี) */}
         <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 max-w-xl px-2">
           {/* 1. ปล่อยโคม */}
           <button
@@ -865,7 +904,7 @@ function LoyKrathongApp() {
             <span>ปล่อยโคม</span>
           </button>
 
-          {/* 2. จุดไฟเย็น (ดอกไม้ไฟเล่นกับเพื่อน ไม่ต้องใส่เลขห้อง) */}
+          {/* 2. จุดไฟเย็น */}
           <button
             type="button"
             onClick={() => setIsSparklerOpen(true)}
@@ -875,15 +914,22 @@ function LoyKrathongApp() {
             <span>จุดไฟเย็น</span>
           </button>
 
-          {/* 3. พรพระแม่ */}
+          {/* 3. บ่อเต่า (แก้เคล็ด F • แข่งคะแนนคณะ) */}
+          <button
+            type="button"
+            onClick={() => setIsTurtleModalOpen(true)}
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-teal-500/20 active:scale-95 border border-teal-500/30 hover:border-teal-400 text-xs sm:text-sm font-semibold text-teal-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
+          >
+            <span>บ่อเต่า</span>
+          </button>
+
+          {/* 4. พรพระแม่ */}
           <button
             type="button"
             onClick={() => {
               if (myKrathongs.length > 0) {
-                // ถ้ามีกระทงที่เคยลอยแล้ว ให้เปิดโองการของกระทงล่าสุดของตนเอง
                 handleOpenKhongkhaBlessing(myKrathongs[0]);
               } else {
-                // ถ้ายังไม่เคยลอยกระทง ให้เปิดโหมดแท่นเสี่ยงทายพรพระแม่ประจำวัน
                 setBlessingKrathong(null);
                 setIsKhongkhaModalOpen(true);
               }
@@ -893,55 +939,13 @@ function LoyKrathongApp() {
             <span>พรพระแม่</span>
           </button>
 
-          {/* 4. บ่อเต่าแก้เคล็ด */}
-          <button
-            type="button"
-            onClick={() => setIsTurtleModalOpen(true)}
-            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-teal-500/20 active:scale-95 border border-teal-500/30 hover:border-teal-400 text-xs sm:text-sm font-semibold text-teal-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
-          >
-            <span>บ่อเต่า</span>
-          </button>
-
-          {/* 5. ชวนเพื่อน */}
-          <button
-            type="button"
-            onClick={() => setIsInviteModalOpen(true)}
-            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
-          >
-            <span>ชวนเพื่อน</span>
-          </button>
-
-          {/* 6. เซียมซี */}
+          {/* 5. เซียมซี */}
           <button
             type="button"
             onClick={() => setIsFortuneOpen(true)}
             className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
           >
             <span>เซียมซี</span>
-          </button>
-
-          {/* 7. เปิด-ปิดเพลงบรรเลง (เหมือนปุ่มรูปลำโพงในรูปที่ 2) */}
-          <button
-            type="button"
-            onClick={handleToggleMusic}
-            className={`h-8 sm:h-9 px-3 rounded-full border transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 text-xs sm:text-sm font-medium cursor-pointer active:scale-95 ${
-              isMusicPlaying
-                ? 'bg-amber-400/20 text-amber-200 border-amber-400/40'
-                : 'bg-slate-900/75 text-slate-400 border-white/10 hover:text-slate-200'
-            }`}
-            title={isMusicPlaying ? 'ปิดเพลงบรรเลง' : 'เปิดเพลงบรรเลง'}
-          >
-            {isMusicPlaying ? (
-              <>
-                <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                <span className="hidden sm:inline">เพลง: เปิด</span>
-              </>
-            ) : (
-              <>
-                <VolumeX className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">เพลง: ปิด</span>
-              </>
-            )}
           </button>
         </div>
       </div>
@@ -953,6 +957,9 @@ function LoyKrathongApp() {
           <span>{notification}</span>
         </div>
       )}
+
+      {/* Background Loy Krathong Music Player (YouTube Fino the Ranad) */}
+      <YouTubeBgmPlayer isPlaying={isMusicPlaying} />
 
       {/* Modals & Drawers */}
       <KrathongCustomizer
