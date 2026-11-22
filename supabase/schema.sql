@@ -139,3 +139,34 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.turtle_coins;
     END IF;
 END $$;
+
+-- 7. ตารางสถิติจำนวนแท่งไฟเย็น (ดอกไม้ไฟ) ที่ถูกจุดจริงในสระน้ำ มทร.กรุงเทพ
+CREATE TABLE IF NOT EXISTS public.sparkler_stats (
+    id VARCHAR(50) PRIMARY KEY DEFAULT 'global',
+    total_sparklers BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.sparkler_stats ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read for sparkler_stats" ON public.sparkler_stats;
+CREATE POLICY "Allow public read for sparkler_stats"
+    ON public.sparkler_stats FOR SELECT
+    USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert/update for sparkler_stats" ON public.sparkler_stats;
+CREATE POLICY "Allow public insert/update for sparkler_stats"
+    ON public.sparkler_stats FOR ALL
+    USING (true)
+    WITH CHECK (true);
+
+-- เปิดใช้งาน Realtime สำหรับ sparkler_stats
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'sparkler_stats'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.sparkler_stats;
+    END IF;
+END $$;

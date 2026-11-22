@@ -42,6 +42,8 @@ import { GroupWaitingModal } from '@/components/Modals/GroupWaitingModal';
 import { SkyLanternModal } from '@/components/Modals/SkyLanternModal';
 import { KhongkhaBlessingModal } from '@/components/Modals/KhongkhaBlessingModal';
 import { TurtlePondModal } from '@/components/Modals/TurtlePondModal';
+import { SparklerModal } from '@/components/Modals/SparklerModal';
+import { bgm } from '@/lib/music';
 
 // Icons
 import {
@@ -102,6 +104,13 @@ function LoyKrathongApp() {
   const [isKhongkhaModalOpen, setIsKhongkhaModalOpen] = useState<boolean>(false);
   const [blessingKrathong, setBlessingKrathong] = useState<Krathong | null>(null);
   const [isTurtleModalOpen, setIsTurtleModalOpen] = useState<boolean>(false);
+  const [isSparklerOpen, setIsSparklerOpen] = useState<boolean>(false);
+  const [isMusicPlaying, setIsMusicPlaying] = useState<boolean>(false);
+
+  const handleToggleMusic = () => {
+    const nextPlaying = bgm.toggle();
+    setIsMusicPlaying(nextPlaying);
+  };
 
   // Group Waiting Room & Story Generator Modals
   const [isGroupWaitingOpen, setIsGroupWaitingOpen] = useState<boolean>(false);
@@ -845,18 +854,28 @@ function LoyKrathongApp() {
           </button>
         </div>
 
-        {/* Secondary Actions: Sleek Unified Frosted Glass Capsule (Clean Text Only, No Emojis, Standard Size) */}
-        <div className="pointer-events-auto w-full max-w-md sm:max-w-lg flex items-center justify-center p-1 sm:p-1.5 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.4)] gap-1">
+        {/* Secondary Actions: Individual Standalone Gen-Z Glassmorphism Pills (แยกเป็นปุ่มใครปุ่มมันเหมือนรูปที่ 2) */}
+        <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 max-w-xl px-2">
           {/* 1. ปล่อยโคม */}
           <button
             type="button"
             onClick={() => setIsLanternModalOpen(true)}
-            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
           >
-            <span className="whitespace-nowrap">ปล่อยโคม</span>
+            <span>ปล่อยโคม</span>
           </button>
 
-          {/* 2. พรพระแม่ */}
+          {/* 2. จุดไฟเย็น (ดอกไม้ไฟเล่นกับเพื่อน ไม่ต้องใส่เลขห้อง) */}
+          <button
+            type="button"
+            onClick={() => setIsSparklerOpen(true)}
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-amber-400/40 hover:border-amber-300 text-xs sm:text-sm font-semibold text-amber-200 transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>จุดไฟเย็น</span>
+          </button>
+
+          {/* 3. พรพระแม่ */}
           <button
             type="button"
             onClick={() => {
@@ -864,41 +883,65 @@ function LoyKrathongApp() {
                 // ถ้ามีกระทงที่เคยลอยแล้ว ให้เปิดโองการของกระทงล่าสุดของตนเอง
                 handleOpenKhongkhaBlessing(myKrathongs[0]);
               } else {
-                // ถ้ายังไม่เคยลอยกระทง ให้เปิดโหมดแท่นเสี่ยงทายพรพระแม่ประจำวัน (ลูกเล่นเสี่ยงทาย + พรมน้ำมนต์)
+                // ถ้ายังไม่เคยลอยกระทง ให้เปิดโหมดแท่นเสี่ยงทายพรพระแม่ประจำวัน
                 setBlessingKrathong(null);
                 setIsKhongkhaModalOpen(true);
               }
             }}
-            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
           >
-            <span className="whitespace-nowrap">พรพระแม่</span>
+            <span>พรพระแม่</span>
           </button>
 
-          {/* 3. บ่อเต่าแก้เคล็ด */}
+          {/* 4. บ่อเต่าแก้เคล็ด */}
           <button
             type="button"
             onClick={() => setIsTurtleModalOpen(true)}
-            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-teal-200 hover:text-teal-100 hover:bg-teal-400/15 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-teal-500/20 active:scale-95 border border-teal-500/30 hover:border-teal-400 text-xs sm:text-sm font-semibold text-teal-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
           >
-            <span className="whitespace-nowrap">บ่อเต่า</span>
+            <span>บ่อเต่า</span>
           </button>
 
-          {/* 4. ชวนเพื่อน */}
+          {/* 5. ชวนเพื่อน */}
           <button
             type="button"
             onClick={() => setIsInviteModalOpen(true)}
-            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
           >
-            <span className="whitespace-nowrap">ชวนเพื่อน</span>
+            <span>ชวนเพื่อน</span>
           </button>
 
-          {/* 5. เซียมซี */}
+          {/* 6. เซียมซี */}
           <button
             type="button"
             onClick={() => setIsFortuneOpen(true)}
-            className="flex-1 h-9 sm:h-10 px-1.5 sm:px-2 rounded-full font-semibold text-xs sm:text-sm text-slate-200/90 hover:text-white hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
           >
-            <span className="whitespace-nowrap">เซียมซี</span>
+            <span>เซียมซี</span>
+          </button>
+
+          {/* 7. เปิด-ปิดเพลงบรรเลง (เหมือนปุ่มรูปลำโพงในรูปที่ 2) */}
+          <button
+            type="button"
+            onClick={handleToggleMusic}
+            className={`h-8 sm:h-9 px-3 rounded-full border transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 text-xs sm:text-sm font-medium cursor-pointer active:scale-95 ${
+              isMusicPlaying
+                ? 'bg-amber-400/20 text-amber-200 border-amber-400/40'
+                : 'bg-slate-900/75 text-slate-400 border-white/10 hover:text-slate-200'
+            }`}
+            title={isMusicPlaying ? 'ปิดเพลงบรรเลง' : 'เปิดเพลงบรรเลง'}
+          >
+            {isMusicPlaying ? (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span className="hidden sm:inline">เพลง: เปิด</span>
+              </>
+            ) : (
+              <>
+                <VolumeX className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">เพลง: ปิด</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1038,6 +1081,11 @@ function LoyKrathongApp() {
           setSelectedKrathong(k);
           setFocusedKrathongId(k.id);
         }}
+      />
+
+      <SparklerModal
+        isOpen={isSparklerOpen}
+        onClose={() => setIsSparklerOpen(false)}
       />
     </div>
   );
