@@ -37,21 +37,11 @@ export const metadata: Metadata = {
     siteName: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
     type: 'website',
     locale: 'th_TH',
-    images: [
-      {
-        url: 'https://rmutk-loykrathong.vercel.app/og-image.png?v=3',
-        width: 1200,
-        height: 630,
-        alt: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
-        type: 'image/png',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'ลอยกระทงออนไลน์ มทร.กรุงเทพ',
     description: 'ร่วมลอยกระทงออนไลน์ ณ สระน้ำ มทร.กรุงเทพ เขียนคำอธิษฐาน จุดประทีป ปล่อยโคมลอย และลอยกับเพื่อนแบบเรียลไทม์',
-    images: ['https://rmutk-loykrathong.vercel.app/og-image.png?v=3'],
   },
 };
 
@@ -86,7 +76,7 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="th" className="dark scroll-smooth">
+    <html lang="th" prefix="og: https://ogp.me/ns# fb: https://ogp.me/ns/fb#" className="dark scroll-smooth">
       <head>
         <script
           type="application/ld+json"
