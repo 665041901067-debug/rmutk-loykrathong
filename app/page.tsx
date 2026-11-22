@@ -45,7 +45,6 @@ import { TurtlePondModal } from '@/components/Modals/TurtlePondModal';
 import { SparklerModal } from '@/components/Modals/SparklerModal';
 import { YouTubeBgmPlayer } from '@/components/Audio/YouTubeBgmPlayer';
 import { saveTurtleProfile } from '@/lib/turtleStats';
-import { bgm } from '@/lib/music';
 
 // Icons
 import {
@@ -113,11 +112,8 @@ function LoyKrathongApp() {
     const nextPlaying = !isMusicPlaying;
     setIsMusicPlaying(nextPlaying);
     if (nextPlaying) {
-      bgm.start();
       setNotification('กำลังบรรเลง: รำวงวันลอยกระทง (ระนาดเอก • Fino the Ranad)');
-      setTimeout(() => setNotification(null), 4500);
-    } else {
-      bgm.stop();
+      setTimeout(() => setNotification(null), 3500);
     }
   };
 
@@ -749,47 +745,41 @@ function LoyKrathongApp() {
         </PondScene>
       </div>
 
-      {/* 2. MINIMALIST FLOATING TOP CONTROLS (STANDALONE INDIVIDUAL CAPSULES สไตล์ GEN-Z) */}
+      {/* 2. MINIMALIST FLOATING TOP CONTROLS (TRANSLUCENT FROSTED GLASS CAPSULES สไตล์ GEN-Z) */}
       <header className="relative z-20 flex items-center justify-end px-3.5 sm:px-6 py-2.5 sm:py-3 pointer-events-none">
-        {/* Top Right Quick Actions: Standalone Individual Capsule Pills (ปุ่มของใครของมันเหมือนด้านล่าง) */}
+        {/* Top Right Quick Actions: Translucent Frosted Glass Pills (เรียง: ไอคอนเปิดปิดเสียง, ค้นหา, ของฉัน, สถิติ, ขนาดตัวอักษร ก) */}
         <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-          {/* 1. Search (ค้นหา) */}
+          {/* 1. Music Toggle: Icon Only (ไอคอนเปิดปิดเสียง ไม่ต้องมีข้อความ) */}
+          <button
+            type="button"
+            onClick={handleToggleMusic}
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border transition-all shadow-sm backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95 ${
+              isMusicPlaying
+                ? 'bg-amber-400/25 text-amber-200 border-amber-300/50 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
+                : 'bg-white/10 text-white/80 border-white/20 hover:text-white hover:bg-white/20'
+            }`}
+            title={isMusicPlaying ? 'ปิดเพลงบรรเลง' : 'เปิดเพลงบรรเลง (Fino the Ranad)'}
+            aria-label="เปิดปิดเพลง"
+          >
+            {isMusicPlaying ? (
+              <Volume2 className="w-4 h-4 text-amber-300 animate-pulse" />
+            ) : (
+              <VolumeX className="w-4 h-4 text-white/70" />
+            )}
+          </button>
+
+          {/* 2. Search (ค้นหา) */}
           <button
             type="button"
             onClick={() => {
               setSearchDrawerInitialTab('search');
               setIsSearchDrawerOpen(true);
             }}
-            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 text-xs sm:text-sm font-medium text-white transition-all shadow-sm backdrop-blur-md flex items-center gap-1.5 cursor-pointer"
             aria-label="ค้นหากระทง"
           >
-            <Search className="w-3.5 h-3.5 text-slate-300" />
+            <Search className="w-3.5 h-3.5 text-white/80" />
             <span>ค้นหา</span>
-          </button>
-
-          {/* 2. Music Toggle (อยู่ข้างค้นหา ตามที่ขอ!) */}
-          <button
-            type="button"
-            onClick={handleToggleMusic}
-            className={`h-8 sm:h-9 px-3 sm:px-3.5 rounded-full border transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 text-xs sm:text-sm font-medium cursor-pointer active:scale-95 ${
-              isMusicPlaying
-                ? 'bg-amber-400/20 text-amber-200 border-amber-400/40 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
-                : 'bg-slate-900/75 text-slate-300 border-white/10 hover:text-white hover:border-white/20'
-            }`}
-            title={isMusicPlaying ? 'ปิดเพลงบรรเลง' : 'เปิดเพลงบรรเลง (Fino the Ranad)'}
-            aria-label="เปิดปิดเพลง"
-          >
-            {isMusicPlaying ? (
-              <>
-                <Volume2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span>เพลง: เปิด</span>
-              </>
-            ) : (
-              <>
-                <VolumeX className="w-3.5 h-3.5 text-slate-400" />
-                <span>เพลง: ปิด</span>
-              </>
-            )}
           </button>
 
           {/* 3. My Krathongs (ของฉัน) */}
@@ -799,7 +789,7 @@ function LoyKrathongApp() {
               setSearchDrawerInitialTab('my-krathongs');
               setIsSearchDrawerOpen(true);
             }}
-            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center gap-1.5 cursor-pointer"
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 text-xs sm:text-sm font-medium text-white transition-all shadow-sm backdrop-blur-md flex items-center gap-1.5 cursor-pointer"
             aria-label="กระทงของฉัน"
           >
             <User className="w-3.5 h-3.5 text-amber-300" />
@@ -813,18 +803,18 @@ function LoyKrathongApp() {
               setSearchDrawerInitialTab('stats');
               setIsSearchDrawerOpen(true);
             }}
-            className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-slate-300 hover:text-white transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 text-white/90 hover:text-white transition-all shadow-sm backdrop-blur-md flex items-center justify-center cursor-pointer"
             title="สถิติสระน้ำ"
             aria-label="ดูสถิติสระน้ำ"
           >
             <BarChart3 className="w-3.5 h-3.5" />
           </button>
 
-          {/* 5. Font Size Toggle (ปรับขนาดตัวอักษร) */}
+          {/* 5. Font Size Toggle (ขนาดตัวอักษร ก) */}
           <button
             type="button"
             onClick={handleToggleFontSize}
-            className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-amber-300 text-xs font-bold transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/20 text-amber-300 text-xs font-bold transition-all shadow-sm backdrop-blur-md flex items-center justify-center cursor-pointer"
             title="ปรับขนาดตัวอักษร"
             aria-label="ปรับขนาดตัวอักษร"
           >
@@ -833,12 +823,12 @@ function LoyKrathongApp() {
         </div>
       </header>
 
-      {/* 3. SUBTLE FLOATING CATEGORY FILTER PILLS (STANDARDIZED GEN-Z TABS - NO SCROLLBAR) */}
+      {/* 3. SUBTLE FLOATING CATEGORY FILTER PILLS (TRANSLUCENT FROSTED GLASS - สีใสไม่บังรูปด้านหลัง) */}
       <div className="relative z-20 flex justify-center px-2 sm:px-3 py-1 pointer-events-auto">
-        <div className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-full bg-slate-900/60 backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.35)] max-w-full overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/15 shadow-sm max-w-full overflow-x-auto no-scrollbar [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[
             { id: 'all' as const, label: 'ทั้งหมด' },
-            { id: 'study' as const, label: 'เรื่องเรียน' },
+            { id: 'study' as const, label: 'เรียน' },
             { id: 'career' as const, label: 'การงาน' },
             { id: 'love' as const, label: 'ความรัก' },
             { id: 'health' as const, label: 'ปล่อยจอย' },
@@ -849,10 +839,10 @@ function LoyKrathongApp() {
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`h-8 sm:h-9 px-3 sm:px-4 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center justify-center flex-shrink-0 cursor-pointer ${
+                className={`h-7 sm:h-8 px-3 sm:px-3.5 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center justify-center flex-shrink-0 cursor-pointer ${
                   isSelected
-                    ? 'bg-amber-400/90 text-slate-950 font-bold shadow-md shadow-amber-500/25 border border-amber-300/40'
-                    : 'text-slate-300/90 hover:text-white hover:bg-white/10'
+                    ? 'bg-amber-400/25 text-amber-200 font-bold border border-amber-300/40 shadow-sm backdrop-blur-md'
+                    : 'text-white/75 hover:text-white hover:bg-white/10 border border-transparent'
                 }`}
               >
                 {cat.label}

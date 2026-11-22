@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface YouTubeBgmPlayerProps {
   isPlaying: boolean;
@@ -13,6 +13,7 @@ interface YouTubeBgmPlayerProps {
  */
 export const YouTubeBgmPlayer: React.FC<YouTubeBgmPlayerProps> = ({ isPlaying }) => {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
 
   const sendCommand = (func: 'playVideo' | 'pauseVideo') => {
     if (!iframeRef.current || !iframeRef.current.contentWindow) return;
@@ -25,12 +26,24 @@ export const YouTubeBgmPlayer: React.FC<YouTubeBgmPlayerProps> = ({ isPlaying })
   };
 
   useEffect(() => {
-    if (isPlaying) {
-      sendCommand('playVideo');
-    } else {
-      sendCommand('pauseVideo');
+    if (isIframeLoaded) {
+      if (isPlaying) {
+        sendCommand('playVideo');
+      } else {
+        sendCommand('pauseVideo');
+      }
     }
-  }, [isPlaying]);
+  }, [isPlaying, isIframeLoaded]);
+
+  const handleIframeLoad = () => {
+    setIsIframeLoaded(true);
+    if (isPlaying) {
+      // Small timeout to allow YouTube internal player script initialization
+      setTimeout(() => {
+        sendCommand('playVideo');
+      }, 300);
+    }
+  };
 
   return (
     <div
@@ -40,11 +53,12 @@ export const YouTubeBgmPlayer: React.FC<YouTubeBgmPlayerProps> = ({ isPlaying })
       <iframe
         ref={iframeRef}
         id="loykrathong-yt-player"
-        title="เพลงรำวงวันลอยกระทง ดนตรีไทยบรรเลง ระนาดเอก"
-        src="https://www.youtube-nocookie.com/embed/X80o4uXSkOs?enablejsapi=1&playsinline=1&controls=0&loop=1&playlist=X80o4uXSkOs&origin=https://rmutk-loykrathong.vercel.app"
+        title="เพลงรำวงวันลอยกระทง ดนตรีไทยบรรเลง ระนาดเอก Fino the Ranad"
+        src="https://www.youtube-nocookie.com/embed/X80o4uXSkOs?enablejsapi=1&playsinline=1&controls=0&loop=1&playlist=X80o4uXSkOs"
         allow="autoplay; encrypted-media"
         width="100"
         height="100"
+        onLoad={handleIframeLoad}
       />
     </div>
   );
