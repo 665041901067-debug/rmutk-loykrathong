@@ -106,14 +106,17 @@ function LoyKrathongApp() {
   const [blessingKrathong, setBlessingKrathong] = useState<Krathong | null>(null);
   const [isTurtleModalOpen, setIsTurtleModalOpen] = useState<boolean>(false);
   const [isSparklerOpen, setIsSparklerOpen] = useState<boolean>(false);
-  const [isMusicPlaying, setIsMusicPlaying] = useState<boolean>(false);
+  const [isMusicPlaying, setIsMusicPlaying] = useState<boolean>(true);
 
   const handleToggleMusic = () => {
     const nextPlaying = !isMusicPlaying;
     setIsMusicPlaying(nextPlaying);
     if (nextPlaying) {
-      setNotification('กำลังบรรเลง: รำวงวันลอยกระทง (ระนาดเอก • Fino the Ranad)');
-      setTimeout(() => setNotification(null), 3500);
+      setNotification('เปิดเสียงเพลง: รำวงวันลอยกระทง (ระนาดเอก • Fino the Ranad)');
+      setTimeout(() => setNotification(null), 3000);
+    } else {
+      setNotification('ปิดเสียงเพลงแล้ว');
+      setTimeout(() => setNotification(null), 2500);
     }
   };
 
