@@ -272,7 +272,7 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="turtle-modal-title"

@@ -573,7 +573,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-3.5 sm:p-5 animate-fadeIn"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="khongkha-modal-title"
@@ -581,13 +581,13 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
       {/* Hidden Canvas for High-Resolution Export */}
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="bg-slate-900/85 backdrop-blur-2xl border border-white/15 w-full max-w-lg rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative">
+      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-lg rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh]">
         {/* Divine Golden Water Ripple Glow */}
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-400/80 to-transparent" />
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-400/80 to-transparent pointer-events-none" />
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-44 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 relative z-10">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 relative z-10 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Droplets className="w-4 h-4 text-amber-300 animate-pulse" />
             <span id="khongkha-modal-title" className="text-sm font-bold text-amber-300">
@@ -611,7 +611,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
 
         {/* Quick Selector Pills if User has Floated Multiple Krathongs */}
         {myKrathongs.length > 1 && (
-          <div className="px-5 pt-3 pb-1 border-b border-white/5 bg-white/[0.02] flex items-center gap-1.5 overflow-x-auto no-scrollbar relative z-10">
+          <div className="px-5 pt-2.5 pb-2 border-b border-white/5 bg-white/[0.02] flex items-center gap-1.5 overflow-x-auto no-scrollbar relative z-10 flex-shrink-0">
             <span className="text-[11px] text-slate-400 whitespace-nowrap font-medium mr-1">
               กระทงของฉัน:
             </span>
@@ -640,7 +640,7 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
         )}
 
         {/* Modal Body */}
-        <div className="p-5 sm:p-6 max-h-[75vh] overflow-y-auto font-thai space-y-4 text-left relative z-10">
+        <div className="p-4 sm:p-5 overflow-y-auto font-thai space-y-4 text-left relative z-10 flex-1 overscroll-contain no-scrollbar">
           {/* =========================================================================
               SCENARIO 1: VISITOR MODE (ยังไม่ได้ลอยกระทงในค่ำคืนนี้)
               มีลูกเล่นเสี่ยงทายเปิดการ์ดพรศักดิ์สิทธิ์ + พรมน้ำมนต์ + สะพานสู่การลอยกระทง
@@ -893,8 +893,8 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
           )}
         </div>
 
-        {/* Modal Action Buttons (Uniform Standard Heights) */}
-        <div className="p-4 sm:p-5 border-t border-white/10 flex items-center gap-2.5 relative z-10">
+        {/* Modal Action Buttons (Pinned at Bottom, Never Cut Off) */}
+        <div className="p-3.5 sm:p-4 border-t border-white/10 flex items-center gap-2.5 relative z-10 flex-shrink-0 bg-slate-900/95">
           <button
             type="button"
             onClick={handleDownloadParchment}

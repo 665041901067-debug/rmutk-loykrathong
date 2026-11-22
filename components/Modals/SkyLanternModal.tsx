@@ -53,17 +53,17 @@ export const SkyLanternModal: React.FC<SkyLanternModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="lantern-modal-title"
     >
-      <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative">
+      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh]">
         {/* Glowing Top Amber Flare */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-2 bg-gradient-to-r from-transparent via-amber-400/60 to-transparent blur-sm" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-2 bg-gradient-to-r from-transparent via-amber-400/60 to-transparent blur-sm pointer-events-none" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-300" />
             <h3 id="lantern-modal-title" className="text-base font-bold text-white">
@@ -73,7 +73,7 @@ export const SkyLanternModal: React.FC<SkyLanternModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             aria-label="ปิด"
           >
             <X className="w-5 h-5" />
@@ -81,7 +81,7 @@ export const SkyLanternModal: React.FC<SkyLanternModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col items-center">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 flex flex-col items-center flex-1 overflow-y-auto overscroll-contain no-scrollbar">
           {/* WOW Interactive Live Lantern Graphic */}
           <div className="my-2 w-full flex flex-col items-center relative min-h-[170px] justify-center overflow-hidden">
             {/* Ascending Fire Sparks when Launching */}

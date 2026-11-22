@@ -937,6 +937,15 @@ function LoyKrathongApp() {
           >
             <span>เซียมซี</span>
           </button>
+
+          {/* 6. ชวนเพื่อน (คงการทำงานเดิม 100%) */}
+          <button
+            type="button"
+            onClick={() => setIsInviteModalOpen(true)}
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-full bg-slate-900/75 hover:bg-slate-800/90 active:scale-95 border border-white/10 hover:border-amber-400/30 text-xs sm:text-sm font-medium text-slate-200 transition-all shadow-md backdrop-blur-xl flex items-center justify-center cursor-pointer"
+          >
+            <span>ชวนเพื่อน</span>
+          </button>
         </div>
       </div>
 

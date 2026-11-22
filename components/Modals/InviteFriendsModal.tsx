@@ -48,12 +48,12 @@ export const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-4 font-thai animate-fadeIn"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 font-thai animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="invite-modal-title"
     >
-      <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 flex flex-col relative">
+      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 flex flex-col max-h-[92dvh] relative">
         {/* Top Glow Accent */}
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
 

@@ -321,7 +321,7 @@ export const FortuneModal: React.FC<FortuneModalProps> = ({ isOpen, onClose }) =
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-md flex items-center justify-center p-3.5 sm:p-5 animate-fadeIn"
+      className="fixed inset-0 z-50 overflow-hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="fortune-title"
@@ -329,13 +329,13 @@ export const FortuneModal: React.FC<FortuneModalProps> = ({ isOpen, onClose }) =
       {/* Hidden Canvas for High-Res PNG Export */}
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-sm sm:max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative">
+      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-sm sm:max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh]">
         {/* Subtle Top Ambient Glow */}
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent pointer-events-none" />
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-36 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 relative z-10">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 relative z-10 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-300" />
             <h3 id="fortune-title" className="text-sm sm:text-base font-bold text-white font-thai">
@@ -345,7 +345,7 @@ export const FortuneModal: React.FC<FortuneModalProps> = ({ isOpen, onClose }) =
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             aria-label="ปิดเซียมซี"
           >
             <X className="w-5 h-5" />
@@ -353,7 +353,7 @@ export const FortuneModal: React.FC<FortuneModalProps> = ({ isOpen, onClose }) =
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 flex flex-col items-center text-center font-thai relative z-10">
+        <div className="p-4 sm:p-6 flex flex-col items-center text-center font-thai relative z-10 flex-1 overflow-y-auto overscroll-contain no-scrollbar">
           {!selectedFortune ? (
             <div className="w-full flex flex-col items-center py-2">
               {/* Bamboo Stick Cylinder Graphic */}
