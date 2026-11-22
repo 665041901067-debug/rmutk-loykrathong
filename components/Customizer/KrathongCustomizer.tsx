@@ -529,6 +529,15 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     if (!validation.valid) {
       setErrors(validation.errors);
       setStep(3);
+      if (validation.errors.sender_name) {
+        setTimeout(() => {
+          const el = document.getElementById('sender-name');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.focus();
+          }
+        }, 100);
+      }
       setIsFloatingCeremony(false);
       setHoldProgress(0);
       return;
@@ -579,6 +588,26 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     const validation = validateKrathongInput(testPayload);
     if (!validation.valid) {
       setErrors(validation.errors);
+      // เลื่อนขึ้นไปเตือนตรงช่องที่ยังไม่ได้กรอกทันที (โดยเฉพาะช่องชื่อ)
+      if (validation.errors.sender_name) {
+        const el = document.getElementById('sender-name');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      } else if (validation.errors.secondary_name) {
+        const el = document.getElementById('secondary-name');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      } else if (validation.errors.wish) {
+        const el = document.getElementById('wish-textarea');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      }
       return;
     }
     setErrors({});
@@ -1184,41 +1213,95 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
               {/* 2. Sender Name Inputs */}
               <div className="space-y-3">
                 <div>
-                  <label htmlFor="sender-name" className="block text-xs sm:text-sm font-semibold text-slate-200 mb-1">
-                    {mode === 'group' ? 'ชื่อของคุณ (ในก๊วนเพื่อน)' : 'ชื่อของคุณ'}
-                    <span className="text-rose-400 ml-1">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="sender-name" className="text-xs sm:text-sm font-semibold text-slate-200 flex items-center gap-1">
+                      <span>{mode === 'group' ? 'ชื่อของคุณ (ในก๊วนเพื่อน)' : 'ชื่อของคุณ'}</span>
+                      <span className="text-rose-400 font-bold">*</span>
+                    </label>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                        errors.sender_name
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
+                          : 'bg-amber-400/15 text-amber-300 border-amber-300/30'
+                      }`}
+                    >
+                      จำเป็นต้องระบุชื่อ
+                    </span>
+                  </div>
                   <input
                     id="sender-name"
                     type="text"
                     maxLength={50}
                     value={senderName}
-                    onChange={(e) => setSenderName(e.target.value)}
+                    onChange={(e) => {
+                      setSenderName(e.target.value);
+                      if (errors.sender_name && e.target.value.trim()) {
+                        setErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.sender_name;
+                          return next;
+                        });
+                      }
+                    }}
                     placeholder="ระบุชื่อหรือชื่อเล่น เช่น โอม, มินนี่"
-                    className="w-full h-11 bg-white/[0.04] border border-white/15 rounded-2xl px-4 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 placeholder-slate-500"
+                    className={`w-full h-11 bg-white/[0.04] rounded-2xl px-4 text-xs sm:text-sm text-white focus:outline-none transition-all placeholder-slate-400 ${
+                      errors.sender_name
+                        ? 'border-2 border-rose-500 shadow-[0_0_16px_rgba(244,63,94,0.35)] ring-2 ring-rose-500/40 bg-rose-500/10'
+                        : 'border border-white/15 focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50'
+                    }`}
                   />
                   {errors.sender_name && (
-                    <p className="text-xs text-rose-400 mt-1">{errors.sender_name}</p>
+                    <div className="mt-1.5 p-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-1.5 animate-bounce">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-rose-400" />
+                      <span>{errors.sender_name || 'กรุณากรอกชื่อของคุณตรงนี้ก่อนปล่อยกระทงนะ'}</span>
+                    </div>
                   )}
                 </div>
 
                 {mode === 'couple' && (
                   <div>
-                    <label htmlFor="secondary-name" className="block text-xs sm:text-sm font-semibold text-slate-200 mb-1">
-                      ชื่อคนรู้ใจ
-                      <span className="text-rose-400 ml-1">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label htmlFor="secondary-name" className="text-xs sm:text-sm font-semibold text-slate-200 flex items-center gap-1">
+                        <span>ชื่อคนรู้ใจ</span>
+                        <span className="text-rose-400 font-bold">*</span>
+                      </label>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                          errors.secondary_name
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
+                            : 'bg-rose-400/15 text-rose-300 border-rose-300/30'
+                        }`}
+                      >
+                        จำเป็นต้องระบุชื่อ
+                      </span>
+                    </div>
                     <input
                       id="secondary-name"
                       type="text"
                       maxLength={50}
                       value={secondaryName}
-                      onChange={(e) => setSecondaryName(e.target.value)}
+                      onChange={(e) => {
+                        setSecondaryName(e.target.value);
+                        if (errors.secondary_name && e.target.value.trim()) {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.secondary_name;
+                            return next;
+                          });
+                        }
+                      }}
                       placeholder="ระบุชื่อคนรู้ใจ"
-                      className="w-full h-11 bg-white/[0.04] border border-white/15 rounded-2xl px-4 text-xs sm:text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50 placeholder-slate-500"
+                      className={`w-full h-11 bg-white/[0.04] rounded-2xl px-4 text-xs sm:text-sm text-white focus:outline-none transition-all placeholder-slate-400 ${
+                        errors.secondary_name
+                          ? 'border-2 border-rose-500 shadow-[0_0_16px_rgba(244,63,94,0.35)] ring-2 ring-rose-500/40 bg-rose-500/10'
+                          : 'border border-white/15 focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400/50'
+                      }`}
                     />
                     {errors.secondary_name && (
-                      <p className="text-xs text-rose-400 mt-1">{errors.secondary_name}</p>
+                      <div className="mt-1.5 p-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-1.5 animate-bounce">
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-rose-400" />
+                        <span>{errors.secondary_name || 'กรุณากรอกชื่อคนรู้ใจตรงนี้ด้วยนะ'}</span>
+                      </div>
                     )}
                   </div>
                 )}

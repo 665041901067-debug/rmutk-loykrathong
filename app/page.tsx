@@ -635,12 +635,31 @@ function LoyKrathongApp() {
   }, [filteredKrathongs, isMobile, focusedKrathongId, newlyCreatedKrathong, driftingAwayIds, activePartyCode]);
 
   // Visible Krathongs with Collision Avoidance & Depth Staggering (Anti-Overlap Physics)
+  // รับประกันว่ากระทงของตนเอง และกระทงที่เพิ่งปล่อย หรือกระทงในก๊วนเพื่อน จะต้องปรากฏในสระเสมอ ไม่โดนเบียดหายเด็ดขาด
   const visibleKrathongs = useMemo(() => {
-    // 15 on mobile, 24 on desktop to keep the water serene and breathable
     const limit = isMobile ? 15 : 24;
-    const baseList = filteredKrathongs.slice(0, limit);
-    return relaxKrathongPositions(baseList, isMobile);
-  }, [filteredKrathongs, isMobile]);
+    const myIds = new Set(getMyKrathongIds());
+
+    // 1. แยกกระทงลำดับความสำคัญสูงสุด (กระทงของฉัน, กระทงที่เพิ่งปล่อย, กระทงที่กำลังโฟกัส, กระทงในปาร์ตี้)
+    const priorityItems = filteredKrathongs.filter(
+      (k) =>
+        k.id === focusedKrathongId ||
+        k.id === newlyCreatedKrathong?.id ||
+        myIds.has(k.id) ||
+        Boolean(activePartyCode && k.party_code === activePartyCode)
+    );
+
+    // 2. กระทงของคนอื่นๆ ในสระน้ำ
+    const otherItems = filteredKrathongs.filter(
+      (k) => !priorityItems.some((p) => p.id === k.id)
+    );
+
+    // 3. รวมให้พอดีกับลิมิตผิวน้ำ เพื่อความลื่นไหล 60fps และไม่รกตา
+    const slotsRemaining = Math.max(0, limit - priorityItems.length);
+    const combined = [...priorityItems, ...otherItems.slice(0, slotsRemaining)];
+
+    return relaxKrathongPositions(combined, isMobile);
+  }, [filteredKrathongs, isMobile, focusedKrathongId, newlyCreatedKrathong, activePartyCode]);
 
   return (
     <div className="relative w-screen h-[100dvh] overflow-hidden bg-rmutk-midnight text-rmutk-ivory select-none flex flex-col font-thai">
