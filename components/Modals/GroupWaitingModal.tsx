@@ -213,8 +213,16 @@ export const GroupWaitingModal: React.FC<GroupWaitingModalProps> = ({
             )}
           </div>
 
+          {/* Quick Party Badge Info */}
+          <div className="w-full mt-3 px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between text-xs">
+            <span className="text-slate-400">รหัสกลุ่มเพื่อน:</span>
+            <span className="font-mono text-cyan-300 font-bold px-2 py-0.5 rounded bg-cyan-400/15 border border-cyan-400/30">
+              {partyCode}
+            </span>
+          </div>
+
           {/* Action Buttons */}
-          <div className="w-full mt-5 space-y-2.5">
+          <div className="w-full mt-3.5 space-y-2.5">
             {isEffectiveHost ? (
               <button
                 type="button"

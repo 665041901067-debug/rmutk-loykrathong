@@ -4,7 +4,8 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import { KrathongBase, FlowerType, CandleSet, SacredItem } from '@/types';
 import { KrathongSVG } from '../Krathong/KrathongSVG';
-import { X, Download, Share2, Copy, Check, Sparkles, QrCode } from 'lucide-react';
+import { X, Download, Copy, Check, Sparkles, QrCode } from 'lucide-react';
+import { saveOrShareImage, waitForFonts } from '@/lib/imageExport';
 
 interface InviteStoryModalProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
   const [themeColor, setThemeColor] = useState<string>('#0A1224');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
   const getInviteUrl = useCallback(() => {
@@ -62,16 +64,8 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
     setIsGenerating(true);
 
     try {
-      if (typeof document !== 'undefined' && 'fonts' in document) {
-        try {
-          await document.fonts.load('bold 68px "Prompt"');
-          await document.fonts.load('500 32px "Prompt"');
-          await document.fonts.load('bold 68px "Noto Sans Thai"');
-          await document.fonts.ready;
-        } catch {
-          // Fallback if font promise fails
-        }
-      }
+      // Fast non-blocking font ready check (max 120ms timeout race)
+      await waitForFonts(120);
 
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -207,7 +201,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
       ctx.fillStyle = '#FDE68A';
       ctx.fillText(`ก๊วนชวนลอย: ${partyCode}`, width / 2, squadPillY + 34);
 
-      // 7. Water Surface & Ripples (Spacious middle section)
+      // 7. Water Surface & Ripples
       const waterY = 660;
       const rippleGrad = ctx.createLinearGradient(0, waterY, 0, height);
       rippleGrad.addColorStop(0, 'rgba(14, 165, 233, 0.15)');
@@ -242,9 +236,14 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
           const blobUrl = URLObj.createObjectURL(svgBlob);
 
           const img = new Image();
-          img.crossOrigin = 'anonymous';
           await new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => {
+              URLObj.revokeObjectURL(blobUrl);
+              resolve();
+            }, 600);
+
             img.onload = () => {
+              clearTimeout(timeout);
               const kw = 460;
               const kh = (kw * 240) / 300;
               const kx = (width - kw) / 2;
@@ -254,6 +253,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
               resolve();
             };
             img.onerror = () => {
+              clearTimeout(timeout);
               URLObj.revokeObjectURL(blobUrl);
               resolve();
             };
@@ -262,7 +262,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
         }
       }
 
-      // 10. QR Code Box (If enabled, nicely separated at bottom)
+      // 9. QR Code Box (If enabled, nicely separated at bottom)
       if (showQR) {
         const inviteUrl = getInviteUrl();
         const qrDataUrl = await QRCode.toDataURL(inviteUrl, {
@@ -276,7 +276,9 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
 
         const qrImg = new Image();
         await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 600);
           qrImg.onload = () => {
+            clearTimeout(timeout);
             const qrSize = 220;
             const qrX = (width - qrSize) / 2;
             const qrY = 1280;
@@ -294,7 +296,10 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
             ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
             resolve();
           };
-          qrImg.onerror = () => resolve();
+          qrImg.onerror = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
           qrImg.src = qrDataUrl;
         });
 
@@ -308,7 +313,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
         ctx.fillText('สระน้ำแห่งคำอธิษฐาน มทร.กรุงเทพ', width / 2, 1450);
       }
 
-      // 11. University Watermark Footer
+      // 10. University Watermark Footer
       ctx.font = thaiFont('400', 22);
       ctx.fillStyle = 'rgba(251, 191, 36, 0.7)';
       ctx.fillText('มหาวิทยาลัยเทคโนโลยีราชมงคลกรุงเทพ • #RMUTKLoyKrathong', width / 2, height - 75);
@@ -321,25 +326,31 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
     }
   }, [customMessage, showQR, themeColor, partyCode, hostName, getInviteUrl]);
 
+  // Debounced card generation when user edits text/theme
   useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        generateStoryCard();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      generateStoryCard();
+    }, 120);
+    return () => clearTimeout(timer);
   }, [isOpen, generateStoryCard]);
 
   if (!isOpen) return null;
 
-  const handleDownload = () => {
-    if (!previewUrl) return;
-    const a = document.createElement('a');
-    a.href = previewUrl;
-    a.download = `RMUTK-LoyKrathong-Story-${partyCode}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const handleDownload = async () => {
+    if (!previewUrl || !canvasRef.current) return;
+    setIsSaving(true);
+    try {
+      await saveOrShareImage(
+        canvasRef.current,
+        `RMUTK-LoyKrathong-Story-${partyCode}.png`,
+        `ชวนลอยกระทงออนไลน์ มทร.กรุงเทพ ก๊วน ${partyCode}`
+      );
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCopyLink = async () => {
@@ -354,7 +365,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[70] overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
+      className="fixed inset-0 z-[70] overflow-hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn"
       role="dialog"
       aria-modal="true"
       aria-labelledby="story-modal-title"
@@ -373,31 +384,31 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
       </div>
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-lg rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] flex flex-col max-h-[92vh] text-slate-100 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-sm rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] flex flex-col max-h-[92dvh] text-slate-100 overflow-hidden relative">
+        {/* Header - Pinned at Top */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/10 flex-shrink-0">
           <div>
-            <h3 id="story-modal-title" className="text-base font-bold text-white flex items-center gap-2">
+            <h3 id="story-modal-title" className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-amber-400" />
               <span>แชร์เป็นรูป (ลงสตอรี่ IG / TikTok)</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">ชวนเพื่อนหรือคนรู้ใจมาร่วมก๊วน</p>
+            <p className="text-[11px] text-slate-400">ชวนเพื่อนหรือคนรู้ใจมาร่วมก๊วน</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             aria-label="ปิด"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body Content */}
-        <div className="overflow-y-auto p-4 sm:p-5 space-y-4 flex-1">
+        {/* Scrollable Body Content */}
+        <div className="overflow-y-auto p-3.5 sm:p-4 space-y-3.5 flex-1 font-thai no-scrollbar">
           {/* 1. Custom Message Input */}
           <div>
-            <label htmlFor="custom-story-msg" className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label htmlFor="custom-story-msg" className="block text-xs font-semibold text-slate-300 mb-1">
               ข้อความบนรูป (แก้ไขได้อิสระ):
             </label>
             <input
@@ -407,7 +418,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
               placeholder="เช่น มาลอยกระทงด้วยกันไหม"
-              className="w-full h-11 bg-white/[0.04] border border-white/15 rounded-2xl px-4 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400/50 font-thai"
+              className="w-full h-10 bg-white/[0.04] border border-white/15 rounded-xl px-3 text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400/50 font-thai"
             />
 
             {/* Quick Presets */}
@@ -417,7 +428,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
                   key={preset}
                   type="button"
                   onClick={() => setCustomMessage(preset)}
-                  className={`text-[11px] px-3 py-1 rounded-full border transition-all cursor-pointer ${
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
                     customMessage === preset
                       ? 'bg-amber-400/20 border-amber-400/60 text-amber-300 font-medium'
                       : 'bg-white/[0.04] border-white/10 text-slate-300 hover:bg-white/10'
@@ -429,8 +440,8 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
             </div>
           </div>
 
-          {/* 2. Visual Story Preview (9:16 aspect ratio box) */}
-          <div className="relative w-full max-w-[270px] aspect-[9/16] mx-auto rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-black/40 flex items-center justify-center">
+          {/* 2. Visual Story Preview (Compact 9:16 aspect ratio box) */}
+          <div className="relative w-full max-w-[210px] sm:max-w-[230px] aspect-[9/16] mx-auto rounded-2xl overflow-hidden shadow-2xl border border-white/15 bg-black/40 flex items-center justify-center">
             {isGenerating || !previewUrl ? (
               <div className="flex flex-col items-center gap-2 text-slate-400 text-xs">
                 <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
@@ -441,13 +452,19 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
               <img
                 src={previewUrl}
                 alt="Story Preview"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover select-all pointer-events-auto cursor-pointer"
+                title="แตะค้างเพื่อบันทึกรูปภาพ"
               />
             )}
           </div>
 
+          {/* Mobile tip: Tap and hold image */}
+          <p className="text-[11px] text-slate-400 text-center leading-normal">
+            💡 บนมือถือ: แตะปุ่ม <span className="text-amber-300">บันทึกรูปภาพ</span> ด้านล่าง หรือแตะค้างที่รูปเพื่อเซฟลงเครื่อง
+          </p>
+
           {/* 3. Controls: QR Code Toggle & Color Themes */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.04] border border-white/10 text-xs">
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs">
             {/* QR Toggle */}
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -456,9 +473,9 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
                 onChange={(e) => setShowQR(e.target.checked)}
                 className="w-4 h-4 rounded text-amber-400 focus:ring-amber-400 bg-black/40 border-white/20 cursor-pointer"
               />
-              <span className="font-semibold text-slate-200 flex items-center gap-1">
+              <span className="font-semibold text-slate-200 flex items-center gap-1 text-[11px] sm:text-xs">
                 <QrCode className="w-3.5 h-3.5 text-amber-400" />
-                <span>ใส่ QR ในรูป</span>
+                <span>ใส่ QR Code</span>
               </span>
             </label>
 
@@ -471,7 +488,7 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
                   type="button"
                   onClick={() => setThemeColor(thm.bg)}
                   title={thm.label}
-                  className={`w-5 h-5 rounded-full border transition-all cursor-pointer ${
+                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border transition-all cursor-pointer ${
                     themeColor === thm.bg
                       ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-slate-900 border-white scale-110'
                       : 'border-white/20 hover:scale-105'
@@ -481,37 +498,37 @@ export const InviteStoryModal: React.FC<InviteStoryModalProps> = ({
               ))}
             </div>
           </div>
+        </div>
 
-          {/* 4. Action Buttons */}
-          <div className="grid grid-cols-2 gap-2.5 pt-1">
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={isGenerating || !previewUrl}
-              className="h-11 sm:h-12 px-4 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400/90 via-amber-300/90 to-amber-400/90 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-200/50 shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" />
-              <span>บันทึกรูปภาพ</span>
-            </button>
+        {/* 4. Action Buttons (PINNED AT BOTTOM, Never Cut Off) */}
+        <div className="p-3 sm:p-3.5 border-t border-white/10 bg-slate-900/95 grid grid-cols-2 gap-2 flex-shrink-0 z-20">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={isGenerating || !previewUrl || isSaving}
+            className="h-11 px-3 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400/90 via-amber-300/90 to-amber-400/90 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-200/50 shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            <span>{isSaving ? 'กำลังบันทึก...' : 'บันทึกรูปภาพ'}</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="h-11 sm:h-12 px-4 rounded-full font-semibold text-xs sm:text-sm bg-white/8 hover:bg-white/15 border border-white/12 text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-400" />
-                  <span className="text-emerald-300">คัดลอกลิงก์แล้ว</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  <span>คัดลอกลิงก์</span>
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="h-11 px-3 rounded-full font-semibold text-xs sm:text-sm bg-white/8 hover:bg-white/15 border border-white/12 text-slate-200 flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span className="text-emerald-300">คัดลอกแล้ว</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                <span>คัดลอกลิงก์</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

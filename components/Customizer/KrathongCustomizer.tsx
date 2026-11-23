@@ -1173,9 +1173,11 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-cyan-300 flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>ชวนเพื่อนลอย</span>
+                      <span>ชวนเพื่อนลอยด้วยกัน</span>
                     </span>
-                    <span className="text-[11px] text-cyan-300/80">กระทงจะลงไปลอยเคียงข้างกันในสระ</span>
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 border border-cyan-400/30">
+                      ก๊วน: {partyCode}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-1 border-t border-cyan-400/20">

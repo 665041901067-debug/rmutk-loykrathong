@@ -6,6 +6,7 @@ import { Krathong, StoryCardFormat } from '@/types';
 import { KrathongSVG } from '../Krathong/KrathongSVG';
 import { BASES, FLOWERS, CANDLES } from '@/data/krathongOptions';
 import { X, Download, Share2, Sparkles, Check, AlertCircle, Smartphone, Square, Droplets } from 'lucide-react';
+import { saveOrShareImage, waitForFonts } from '@/lib/imageExport';
 
 interface WishCardModalProps {
   krathong: Krathong | null;
@@ -28,6 +29,7 @@ export const WishCardModal: React.FC<WishCardModalProps> = ({
   const [isGenerating, setIsGenerating] = useState<boolean>(true);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const generateCard = useCallback(async () => {
     if (!krathong || !canvasRef.current) return;
@@ -35,16 +37,8 @@ export const WishCardModal: React.FC<WishCardModalProps> = ({
     setGenerationError(null);
 
     try {
-      if (typeof document !== 'undefined' && 'fonts' in document) {
-        try {
-          await document.fonts.load('bold 42px "Prompt"');
-          await document.fonts.load('24px "Prompt"');
-          await document.fonts.load('bold 42px "Noto Sans Thai"');
-          await document.fonts.ready;
-        } catch {
-          // Fallback if font promise fails
-        }
-      }
+      // Fast non-blocking font ready check (max 120ms timeout race)
+      await waitForFonts(120);
 
       const canvas = canvasRef.current;
       const isStory = cardFormat === 'story';
@@ -516,15 +510,21 @@ export const WishCardModal: React.FC<WishCardModalProps> = ({
 
   if (!isOpen || !krathong) return null;
 
-  const handleDownload = () => {
-    if (!cardImageUrl) return;
-    const link = document.createElement('a');
-    link.download =
-      cardFormat === 'story'
-        ? `story-rmutk-${krathong.id.substring(0, 8)}.png`
-        : `krathong-rmutk-${krathong.id.substring(0, 8)}.png`;
-    link.href = cardImageUrl;
-    link.click();
+  const handleDownload = async () => {
+    if (!canvasRef.current && !cardImageUrl) return;
+    setIsSaving(true);
+    try {
+      const filename =
+        cardFormat === 'story'
+          ? `story-rmutk-${krathong.id.substring(0, 8)}.png`
+          : `krathong-rmutk-${krathong.id.substring(0, 8)}.png`;
+      const title = `การ์ดคำขอคืนลอยกระทง มทร.กรุงเทพ • ${krathong.sender_name}`;
+      await saveOrShareImage(canvasRef.current || cardImageUrl!, filename, title);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCopyLink = async () => {
@@ -652,16 +652,21 @@ export const WishCardModal: React.FC<WishCardModalProps> = ({
             ) : null}
           </div>
 
+          {/* Mobile tip */}
+          <p className="text-[11px] text-slate-400 text-center mt-2.5">
+            💡 บนมือถือ: แตะปุ่มบันทึก หรือแตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง
+          </p>
+
           {/* Action Buttons: Download & Copy Link */}
-          <div className="grid grid-cols-2 gap-2.5 w-full mt-4">
+          <div className="grid grid-cols-2 gap-2.5 w-full mt-3">
             <button
               type="button"
               onClick={handleDownload}
-              disabled={isGenerating || !cardImageUrl}
+              disabled={isGenerating || !cardImageUrl || isSaving}
               className="h-11 sm:h-12 px-4 rounded-full font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400/90 via-amber-300/90 to-amber-400/90 hover:from-amber-300 hover:to-amber-400 text-slate-950 border border-amber-200/50 shadow-lg shadow-amber-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              <span>บันทึกลงเครื่อง</span>
+              <span>{isSaving ? 'กำลังบันทึก...' : 'บันทึกลงเครื่อง'}</span>
             </button>
 
             <button

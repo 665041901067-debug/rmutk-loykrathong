@@ -19,6 +19,7 @@ import {
   MapPin,
   ArrowRight,
 } from 'lucide-react';
+import { saveOrShareImage, waitForFonts } from '@/lib/imageExport';
 
 interface KhongkhaBlessingModalProps {
   krathong: Krathong | null;
@@ -149,17 +150,8 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
     setIsDownloading(true);
 
     try {
-      if (typeof document !== 'undefined' && 'fonts' in document) {
-        try {
-          await document.fonts.load('bold 54px "Prompt"');
-          await document.fonts.load('bold 32px "Prompt"');
-          await document.fonts.load('28px "Prompt"');
-          await document.fonts.load('24px "Prompt"');
-          await document.fonts.ready;
-        } catch {
-          // Fallback if font loading promise fails
-        }
-      }
+      // Fast non-blocking font check (120ms max)
+      await waitForFonts(120);
 
       const canvas = canvasRef.current;
       const width = 1080;
@@ -558,12 +550,12 @@ export const KhongkhaBlessingModal: React.FC<KhongkhaBlessingModalProps> = ({
         height - 56
       );
 
-      // Convert to high-resolution PNG image and trigger browser download
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `khongkha-blessing-${blessing.recipientName.replace(/\s+/g, '_')}.png`;
-      link.href = dataUrl;
-      link.click();
+      // Cross-platform mobile-ready image export (iOS Save to Photos, Android Share, or Direct Download)
+      await saveOrShareImage(
+        canvas,
+        `khongkha-blessing-${blessing.recipientName.replace(/\s+/g, '_')}.png`,
+        `ใบพรพระแม่คงคา • ${blessing.recipientName} (${blessing.faculty})`
+      );
     } catch {
       // Fallback
     } finally {

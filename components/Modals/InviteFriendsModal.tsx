@@ -93,39 +93,41 @@ export const InviteFriendsModal: React.FC<InviteFriendsModalProps> = ({
             </p>
           </div>
 
-          {/* Clean Invite Link Box */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1">
+          {/* Clean Invite Link & Party Card */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
                 <LinkIcon className="w-3.5 h-3.5 text-cyan-400" />
                 <span>ลิงก์ชวนเพื่อนของคุณ</span>
               </span>
-              <span className="text-[11px] text-cyan-300">ชวนได้ไม่จำกัด</span>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/15 text-cyan-300 border border-cyan-400/30">
+                รหัสก๊วน: {partyCode}
+              </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-11 bg-white/5 border border-white/10 rounded-xl px-3.5 flex items-center text-xs text-slate-300 font-mono truncate select-all">
-                {getInviteUrl() || 'กำลังสร้างลิงก์...'}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="h-11 px-4 rounded-xl bg-cyan-400/90 hover:bg-cyan-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer flex-shrink-0 shadow-md shadow-cyan-500/20"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>คัดลอกแล้ว!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4" />
-                    <span>คัดลอกลิงก์</span>
-                  </>
-                )}
-              </button>
+            {/* Dedicated readable link display box - cleanly breaks without awkward overflow */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-black/40 border border-white/10 text-[11px] sm:text-xs text-slate-300 font-mono break-all leading-relaxed select-all">
+              {getInviteUrl() || 'กำลังสร้างลิงก์...'}
             </div>
+
+            {/* Full-width, easy-to-tap copy button */}
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="w-full h-11 rounded-xl bg-cyan-400/90 hover:bg-cyan-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md shadow-cyan-500/20"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 stroke-[3] text-slate-950" />
+                  <span>คัดลอกลิงก์สำเร็จแล้ว!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  <span>คัดลอกลิงก์ชวนเพื่อน</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Social Story Button */}
