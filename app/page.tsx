@@ -159,8 +159,22 @@ function LoyKrathongApp() {
   // Minimal Toast Notification
   const [notification, setNotification] = useState<string | null>(null);
 
-  // Check URL params for invite party link
+  // Check URL params for invite party link or fresh start reset
   useEffect(() => {
+    // Fresh start reset: ล้างแคชกระทงทดสอบในเครื่องทันทีเมื่อเปิดด้วย ?reset=1
+    if (searchParams?.get('reset') === '1' || searchParams?.get('cleardata') === 'true') {
+      try {
+        localStorage.removeItem('rmutk_loykrathong_custom_items');
+        localStorage.removeItem('rmutk_loykrathong_my_ids');
+        localStorage.removeItem('rmutk_loykrathong_voted_ids');
+        localStorage.removeItem('rmutk_loykrathong_last_submit');
+        localStorage.removeItem('rmutk_turtle_coins_real');
+        localStorage.removeItem('rmutk_turtle_profile');
+        window.location.replace(window.location.pathname);
+        return;
+      } catch {}
+    }
+
     const partyParam = searchParams?.get('party');
     const timeParam = searchParams?.get('time');
     if (partyParam) {
