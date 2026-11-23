@@ -115,6 +115,22 @@ export const KrathongFloatingItem: React.FC<KrathongFloatingItemProps> = memo(
         </div>
       </button>
     );
+  },
+  (prev, next) => {
+    return (
+      prev.krathong.id === next.krathong.id &&
+      prev.krathong.pos_x === next.krathong.pos_x &&
+      prev.krathong.pos_y === next.krathong.pos_y &&
+      prev.krathong.bless_count === next.krathong.bless_count &&
+      prev.krathong.scale === next.krathong.scale &&
+      prev.krathong.base_type === next.krathong.base_type &&
+      prev.krathong.flower_type === next.krathong.flower_type &&
+      prev.krathong.candle_type === next.krathong.candle_type &&
+      prev.isFocused === next.isFocused &&
+      prev.isDriftingAway === next.isDriftingAway &&
+      prev.isPartyMatch === next.isPartyMatch &&
+      prev.isNewlyFloated === next.isNewlyFloated
+    );
   }
 );
 

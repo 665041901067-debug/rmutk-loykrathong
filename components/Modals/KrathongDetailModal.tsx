@@ -87,7 +87,7 @@ export const KrathongDetailModal: React.FC<KrathongDetailModalProps> = ({
       aria-modal="true"
       aria-labelledby="detail-modal-title"
     >
-      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-sm rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh]">
+      <div className="bg-slate-900/95 sm:bg-slate-900/90 backdrop-blur-xl border border-white/15 w-full max-w-sm rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh] transform-gpu will-change-transform">
         {/* Floating Heart Shower Animation upon giving heart */}
         {showHearts && (
           <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">

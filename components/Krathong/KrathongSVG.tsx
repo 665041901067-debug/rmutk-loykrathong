@@ -16,7 +16,7 @@ interface KrathongSVGProps {
   interactive?: boolean;
 }
 
-export const KrathongSVG: React.FC<KrathongSVGProps> = ({
+const KrathongSVGComponent: React.FC<KrathongSVGProps> = ({
   base = 'banana-leaf',
   flower = 'lotus',
   candle = 'traditional',
@@ -1018,3 +1018,29 @@ export const KrathongSVG: React.FC<KrathongSVGProps> = ({
     </svg>
   );
 };
+
+export const KrathongSVG = React.memo<KrathongSVGProps>(
+  KrathongSVGComponent,
+  (prev, next) => {
+    if (prev.base !== next.base) return false;
+    if (prev.flower !== next.flower) return false;
+    if (prev.candle !== next.candle) return false;
+    if (prev.isLit !== next.isLit) return false;
+    if (prev.size !== next.size) return false;
+    if (prev.showWaterRipples !== next.showWaterRipples) return false;
+    if (prev.interactive !== next.interactive) return false;
+    if (prev.className !== next.className) return false;
+
+    // Shallow compare sacredItems array
+    const prevItems = prev.sacredItems || [];
+    const nextItems = next.sacredItems || [];
+    if (prevItems.length !== nextItems.length) return false;
+    for (let i = 0; i < prevItems.length; i++) {
+      if (prevItems[i] !== nextItems[i]) return false;
+    }
+
+    return true;
+  }
+);
+
+KrathongSVG.displayName = 'KrathongSVG';

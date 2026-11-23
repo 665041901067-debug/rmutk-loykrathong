@@ -277,7 +277,7 @@ export const TurtlePondModal: React.FC<TurtlePondModalProps> = ({
       aria-modal="true"
       aria-labelledby="turtle-modal-title"
     >
-      <div className="bg-slate-900/90 backdrop-blur-2xl border border-teal-500/30 w-full max-w-md sm:max-w-lg rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh]">
+      <div className="bg-slate-900/95 sm:bg-slate-900/90 backdrop-blur-xl border border-teal-500/30 w-full max-w-md sm:max-w-lg rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh] transform-gpu">
         {/* Ambient Top Glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-2 bg-gradient-to-r from-transparent via-teal-400/60 to-transparent blur-sm" />
 

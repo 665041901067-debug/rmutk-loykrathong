@@ -8,7 +8,7 @@ interface PondSceneProps {
   children?: React.ReactNode;
 }
 
-export const PondScene: React.FC<PondSceneProps> = ({ timeOfDay, children }) => {
+const PondBackground = React.memo<{ timeOfDay: TimeOfDay }>(({ timeOfDay }) => {
   // Theme palette for Day, Twilight, Moonlight, Late-night
   const theme = useMemo(() => {
     switch (timeOfDay) {
@@ -187,7 +187,7 @@ export const PondScene: React.FC<PondSceneProps> = ({ timeOfDay, children }) => 
   );
 
   return (
-    <div className="relative w-full h-full overflow-hidden select-none">
+    <>
       {/* ========================================================
           DESKTOP / TABLET SCENE (viewBox="0 0 1440 900")
           AUTHENTIC ARCHITECTURE BASED ON RMUTK PHOTOS:
@@ -1564,8 +1564,16 @@ export const PondScene: React.FC<PondSceneProps> = ({ timeOfDay, children }) => 
           </g>
         </g>
       </svg>
+    </>
+  );
+});
 
-      {/* KRATHONGS FLOATING CONTAINER */}
+PondBackground.displayName = 'PondBackground';
+
+export const PondScene: React.FC<PondSceneProps> = ({ timeOfDay, children }) => {
+  return (
+    <div className="relative w-full h-full overflow-hidden select-none">
+      <PondBackground timeOfDay={timeOfDay} />
       <div className="absolute inset-0 pointer-events-auto">
         {children}
       </div>

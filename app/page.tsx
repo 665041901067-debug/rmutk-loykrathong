@@ -202,6 +202,10 @@ function LoyKrathongApp() {
     }
   };
 
+  const handleKrathongItemClick = useCallback((item: Krathong) => {
+    setSelectedKrathong(item);
+  }, []);
+
   // 1. Fetch Latest Krathongs
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -724,7 +728,7 @@ function LoyKrathongApp() {
             <KrathongFloatingItem
               key={k.id}
               krathong={k}
-              onClick={(item) => setSelectedKrathong(item)}
+              onClick={handleKrathongItemClick}
               isFocused={focusedKrathongId === k.id}
               isDriftingAway={driftingAwayIds.has(k.id)}
               isPartyMatch={Boolean(activePartyCode && k.party_code === activePartyCode)}

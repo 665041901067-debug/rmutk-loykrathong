@@ -58,7 +58,7 @@ export const SkyLanternModal: React.FC<SkyLanternModalProps> = ({
       aria-modal="true"
       aria-labelledby="lantern-modal-title"
     >
-      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh]">
+      <div className="bg-slate-900/95 sm:bg-slate-900/90 backdrop-blur-xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh] transform-gpu">
         {/* Glowing Top Amber Flare */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-2 bg-gradient-to-r from-transparent via-amber-400/60 to-transparent blur-sm pointer-events-none" />
 

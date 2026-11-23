@@ -123,7 +123,7 @@ export const GroupWaitingModal: React.FC<GroupWaitingModalProps> = ({
       aria-modal="true"
       aria-labelledby="group-waiting-title"
     >
-      <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative">
+      <div className="bg-slate-900/95 sm:bg-slate-900/90 backdrop-blur-xl border border-white/15 w-full max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative transform-gpu">
         {/* Countdown Overlay Animation */}
         {countdown !== null && (
           <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-xl flex flex-col items-center justify-center animate-fadeIn">

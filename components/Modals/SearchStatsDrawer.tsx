@@ -96,7 +96,7 @@ export const SearchStatsDrawer: React.FC<SearchStatsDrawerProps> = ({
       aria-modal="true"
       aria-labelledby="drawer-title"
     >
-      <div className="w-full max-w-lg bg-slate-900/80 backdrop-blur-2xl border-l border-white/15 h-full shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col text-slate-100 animate-slideLeft">
+      <div className="w-full max-w-lg bg-slate-900/95 sm:bg-slate-900/90 backdrop-blur-xl border-l border-white/15 h-full shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col text-slate-100 animate-slideLeft transform-gpu will-change-transform">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-white/[0.02]">
           <div className="flex items-center gap-2">

@@ -329,7 +329,7 @@ export const FortuneModal: React.FC<FortuneModalProps> = ({ isOpen, onClose }) =
       {/* Hidden Canvas for High-Res PNG Export */}
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="bg-slate-900/90 backdrop-blur-2xl border border-white/15 w-full max-w-sm sm:max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh]">
+      <div className="bg-slate-900/95 sm:bg-slate-900/90 backdrop-blur-xl border border-white/15 w-full max-w-sm sm:max-w-md rounded-3xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden text-slate-100 relative flex flex-col max-h-[92dvh] transform-gpu">
         {/* Subtle Top Ambient Glow */}
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent pointer-events-none" />
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-36 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />

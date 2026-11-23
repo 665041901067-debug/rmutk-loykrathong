@@ -108,9 +108,9 @@ const GENZ_WISH_PRESETS: Record<WishCategory, { label: string; presets: string[]
 };
 
 // ==========================================
-// Custom Clean Vector Mini Icons for Cards
+// Custom Clean Vector Mini Icons for Cards (Memoized for 60fps performance)
 // ==========================================
-function BaseMiniIcon({ baseId }: { baseId: KrathongBase }) {
+const BaseMiniIcon = React.memo(function BaseMiniIcon({ baseId }: { baseId: KrathongBase }) {
   switch (baseId) {
     case 'gear-base':
       return (
@@ -228,9 +228,9 @@ function BaseMiniIcon({ baseId }: { baseId: KrathongBase }) {
     default:
       return null;
   }
-}
+});
 
-function FlowerMiniIcon({ flowerId }: { flowerId: FlowerType }) {
+const FlowerMiniIcon = React.memo(function FlowerMiniIcon({ flowerId }: { flowerId: FlowerType }) {
   switch (flowerId) {
     case 'lotus':
       return (
@@ -266,9 +266,9 @@ function FlowerMiniIcon({ flowerId }: { flowerId: FlowerType }) {
         </svg>
       );
   }
-}
+});
 
-function CandleMiniIcon({ candleId }: { candleId: CandleSet }) {
+const CandleMiniIcon = React.memo(function CandleMiniIcon({ candleId }: { candleId: CandleSet }) {
   switch (candleId) {
     case 'traditional':
       return (
@@ -303,9 +303,9 @@ function CandleMiniIcon({ candleId }: { candleId: CandleSet }) {
         </svg>
       );
   }
-}
+});
 
-function SacredMiniIcon({ itemId }: { itemId: SacredItem }) {
+const SacredMiniIcon = React.memo(function SacredMiniIcon({ itemId }: { itemId: SacredItem }) {
   switch (itemId) {
     case 'coin':
       return (
@@ -332,7 +332,223 @@ function SacredMiniIcon({ itemId }: { itemId: SacredItem }) {
         </svg>
       );
   }
+});
+
+// ==========================================
+// Isolated High-Performance Hold Button (60fps without parent re-renders)
+// ==========================================
+interface HoldToPrayButtonProps {
+  isSubmitting: boolean;
+  cooldownRemaining: number;
+  isFloatingCeremony: boolean;
+  initialPartyCode?: string;
+  mode: FloatingMode;
+  onValidateAndStart: () => boolean;
+  onHoldingChange: (holding: boolean) => void;
+  onHoldComplete: () => void;
 }
+
+const HoldToPrayButton = React.memo<HoldToPrayButtonProps>(({
+  isSubmitting,
+  cooldownRemaining,
+  isFloatingCeremony,
+  initialPartyCode,
+  mode,
+  onValidateAndStart,
+  onHoldingChange,
+  onHoldComplete,
+}) => {
+  const [holdProgress, setHoldProgress] = useState<number>(0);
+  const [isLocalHolding, setIsLocalHolding] = useState<boolean>(false);
+  const [showTip, setShowTip] = useState<boolean>(false);
+  const holdStartTimeRef = useRef<number | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const tipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (tipTimeoutRef.current) clearTimeout(tipTimeoutRef.current);
+    };
+  }, []);
+
+  const HOLD_DURATION_MS = 1600;
+
+  const startHolding = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('button' in e && e.button !== 0) return;
+    if (isSubmitting || cooldownRemaining > 0 || isFloatingCeremony) return;
+
+    const isValid = onValidateAndStart();
+    if (!isValid) return;
+
+    setIsLocalHolding(true);
+    onHoldingChange(true);
+    setShowTip(false);
+    sound.playWaterDrop();
+    holdStartTimeRef.current = performance.now();
+
+    const tick = (now: number) => {
+      if (!holdStartTimeRef.current) return;
+      const elapsed = now - holdStartTimeRef.current;
+      const p = Math.min(100, (elapsed / HOLD_DURATION_MS) * 100);
+      setHoldProgress(p);
+
+      if (p >= 100) {
+        setIsLocalHolding(false);
+        onHoldingChange(false);
+        setHoldProgress(100);
+        if (animFrameRef.current) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+        onHoldComplete();
+      } else {
+        animFrameRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    animFrameRef.current = requestAnimationFrame(tick);
+  };
+
+  const stopHolding = () => {
+    if (isFloatingCeremony) return;
+    if (isLocalHolding && holdProgress < 100) {
+      setShowTip(true);
+      if (tipTimeoutRef.current) clearTimeout(tipTimeoutRef.current);
+      tipTimeoutRef.current = setTimeout(() => setShowTip(false), 2500);
+    }
+    setIsLocalHolding(false);
+    onHoldingChange(false);
+    holdStartTimeRef.current = null;
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    setHoldProgress(0);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col min-w-0">
+      {/* Hold Tip */}
+      {showTip && (
+        <div className="text-center animate-bounce -mt-6 mb-1.5 pointer-events-none">
+          <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] text-amber-300 bg-amber-400/20 border border-amber-400/40 px-2.5 py-0.5 rounded-full font-medium shadow-md">
+            <Sparkles className="w-3 h-3 text-amber-300" />
+            <span>แตะค้างปุ่มวงกลมไว้ให้เต็มวง เพื่อตั้งจิตอธิษฐานนะ ✨</span>
+          </span>
+        </div>
+      )}
+
+      {/* Button Outer */}
+      <div
+        role="button"
+        tabIndex={0}
+        onMouseDown={startHolding}
+        onMouseUp={stopHolding}
+        onMouseLeave={stopHolding}
+        onTouchStart={startHolding}
+        onTouchEnd={stopHolding}
+        onTouchCancel={stopHolding}
+        onContextMenu={(e) => e.preventDefault()}
+        className={`w-full h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl sm:rounded-2xl relative overflow-hidden select-none transition-all cursor-pointer border-2 flex items-center gap-2.5 ${
+          cooldownRemaining > 0 || isSubmitting
+            ? 'opacity-60 pointer-events-none border-white/10 bg-white/5'
+            : isLocalHolding
+            ? 'border-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.5)] scale-[0.99] bg-slate-900/95'
+            : 'border-amber-400/50 hover:border-amber-300 shadow-lg shadow-amber-500/15 bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-amber-500/15'
+        }`}
+      >
+        {/* Background Progress Fill Sweep */}
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500/35 via-amber-400/50 to-amber-300/40 pointer-events-none transition-all duration-75 ease-linear"
+          style={{ width: `${holdProgress}%` }}
+        />
+
+        {/* Circular Progress Ring */}
+        <div className="relative w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0 flex items-center justify-center z-10">
+          <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 44 44">
+            <circle
+              cx="22"
+              cy="22"
+              r="18"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              fill="none"
+              className="text-white/15"
+            />
+            <circle
+              cx="22"
+              cy="22"
+              r="18"
+              stroke="url(#holdGoldGrad)"
+              strokeWidth="3.8"
+              strokeDasharray="113.1"
+              strokeDashoffset={113.1 - (holdProgress / 100) * 113.1}
+              strokeLinecap="round"
+              fill="none"
+              className="transition-all duration-75 ease-linear"
+            />
+            <defs>
+              <linearGradient id="holdGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FEF08A" />
+                <stop offset="50%" stopColor="#FBBF24" />
+                <stop offset="100%" stopColor="#F59E0B" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {/* Center Icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            {holdProgress >= 100 ? (
+              <Check className="w-4 h-4 text-amber-300 stroke-[3] animate-bounce" />
+            ) : isLocalHolding ? (
+              <span className="text-[9px] font-black text-amber-200">
+                {Math.round(holdProgress)}%
+              </span>
+            ) : (
+              <Flame className="w-4 h-4 text-amber-300 fill-amber-300" />
+            )}
+          </div>
+        </div>
+
+        {/* Button Text Details */}
+        <div className="flex-1 min-w-0 z-10 text-left">
+          <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1 leading-tight truncate">
+            {isSubmitting ? (
+              <span>กำลังส่งคำขอลงสู่สายน้ำ...</span>
+            ) : isFloatingCeremony || holdProgress >= 100 ? (
+              <span className="text-amber-200 flex items-center gap-1">
+                <span>อธิษฐานสำเร็จ! กำลังลอยสู่สระ...</span>
+                <Sparkles className="w-3 h-3 text-amber-300 animate-spin" />
+              </span>
+            ) : isLocalHolding ? (
+              <span className="text-amber-200">
+                กำลังตั้งจิตอธิษฐาน... ({Math.round(holdProgress)}%)
+              </span>
+            ) : cooldownRemaining > 0 ? (
+              <span>รออีก {cooldownRemaining} วินาที</span>
+            ) : initialPartyCode ? (
+              <span>กดค้างเพื่ออธิษฐาน & เข้าก๊วนเพื่อน</span>
+            ) : mode !== 'solo' ? (
+              <span>กดค้างเพื่ออธิษฐาน & ชวนเพื่อน</span>
+            ) : (
+              <span>กดค้างเพื่อตั้งจิตอธิษฐาน & ลอย</span>
+            )}
+          </div>
+          <div className="text-[10px] text-slate-300/85 truncate">
+            {isLocalHolding
+              ? 'อย่าเพิ่งปล่อยมือนะ กำลังส่งพลังใจ... ✨'
+              : isFloatingCeremony
+              ? 'ขอให้คำอธิษฐานสมปรารถนาทุกประการ'
+              : 'แตะค้างปุ่มวงกลมไว้เพื่อปล่อยกระทงลงน้ำ'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+HoldToPrayButton.displayName = 'HoldToPrayButton';
 
 export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
   isOpen,
@@ -374,12 +590,8 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
 
   // Hold-to-Pray & Float States (ลูกเล่นกดค้างอธิษฐาน & กระทงดุกดิก)
-  const [holdProgress, setHoldProgress] = useState<number>(0);
   const [isHolding, setIsHolding] = useState<boolean>(false);
   const [isFloatingCeremony, setIsFloatingCeremony] = useState<boolean>(false);
-  const [showHoldTip, setShowHoldTip] = useState<boolean>(false);
-  const holdStartTimeRef = useRef<number | null>(null);
-  const animFrameRef = useRef<number | null>(null);
 
   // Reset to Step 1 whenever modal opens
   useEffect(() => {
@@ -389,34 +601,18 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       setDecorCategory('flower');
       setErrors({});
       setServerError(null);
-      setHoldProgress(0);
       setIsHolding(false);
       setIsFloatingCeremony(false);
-      setShowHoldTip(false);
       setIsLit(true); // จุดเทียนอัตโนมัติตั้งแต่เริ่ม
       setFaculty(''); // เริ่มต้นให้ผู้ใช้เลือกคณะจริงของตนเอง
     }
   }, [isOpen]);
 
-  // Cleanup hold animation frame on unmount or step switch
   useEffect(() => {
-    return () => {
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    setHoldProgress(0);
     setIsHolding(false);
     setIsFloatingCeremony(false);
     if (step === 3) {
       setIsLit(true); // จุดเทียนอัตโนมัติเมื่อถึงขั้นตอนอธิษฐาน
-    }
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
     }
   }, [step]);
 
@@ -513,7 +709,6 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       setCooldownRemaining(remaining);
       setServerError(`รออีก ${remaining} วินาที ก่อนปล่อยกระทงใบถัดไป`);
       setIsFloatingCeremony(false);
-      setHoldProgress(0);
       return;
     }
 
@@ -555,7 +750,6 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
         }, 100);
       }
       setIsFloatingCeremony(false);
-      setHoldProgress(0);
       return;
     }
 
@@ -569,24 +763,16 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       } else {
         setServerError(result.error || 'ไม่สามารถปล่อยกระทงได้ ลองใหม่อีกครั้งนะ');
         setIsFloatingCeremony(false);
-        setHoldProgress(0);
       }
     } catch {
       setServerError('ไม่สามารถเชื่อมต่อได้ในขณะนี้');
       setIsFloatingCeremony(false);
-      setHoldProgress(0);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const HOLD_DURATION_MS = 1600;
-
-  const startHolding = (e: React.MouseEvent | React.TouchEvent) => {
-    if ('button' in e && e.button !== 0) return;
-    if (isSubmitting || cooldownRemaining > 0 || isFloatingCeremony) return;
-
-    // Validate inputs first! If invalid, highlight errors immediately and do not start holding
+  const validateBeforeHold = (): boolean => {
     const effectivePartyCode = mode !== 'solo' ? (partyCode.trim() || undefined) : undefined;
     const testPayload: KrathongInput = {
       sender_name: senderName.trim(),
@@ -604,9 +790,14 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
     const validation = validateKrathongInput(testPayload);
     if (!validation.valid) {
       setErrors(validation.errors);
-      // เลื่อนขึ้นไปเตือนตรงช่องที่ยังไม่ได้กรอกทันที (โดยเฉพาะช่องชื่อ)
       if (validation.errors.sender_name) {
         const el = document.getElementById('sender-name');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      } else if (validation.errors.faculty) {
+        const el = document.getElementById('faculty-select');
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           el.focus();
@@ -618,60 +809,21 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
           el.focus();
         }
       } else if (validation.errors.wish) {
-        const el = document.getElementById('wish-textarea');
+        const el = document.getElementById('wish-input');
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           el.focus();
         }
       }
-      return;
+      return false;
     }
     setErrors({});
-
-    setIsHolding(true);
     setIsLit(true);
-    setShowHoldTip(false);
-    sound.playWaterDrop();
-    holdStartTimeRef.current = performance.now();
-
-    const tick = (now: number) => {
-      if (!holdStartTimeRef.current) return;
-      const elapsed = now - holdStartTimeRef.current;
-      const p = Math.min(100, (elapsed / HOLD_DURATION_MS) * 100);
-      setHoldProgress(p);
-
-      if (p >= 100) {
-        handleHoldComplete();
-      } else {
-        animFrameRef.current = requestAnimationFrame(tick);
-      }
-    };
-
-    animFrameRef.current = requestAnimationFrame(tick);
-  };
-
-  const stopHolding = () => {
-    if (isFloatingCeremony) return;
-    if (isHolding && holdProgress < 100) {
-      setShowHoldTip(true);
-      setTimeout(() => setShowHoldTip(false), 2500);
-    }
-    setIsHolding(false);
-    holdStartTimeRef.current = null;
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
-    setHoldProgress(0);
+    return true;
   };
 
   const handleHoldComplete = () => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
     setIsHolding(false);
-    setHoldProgress(100);
     setIsFloatingCeremony(true);
     sound.playTempleBell();
     sound.playWaterDrop();
@@ -685,14 +837,16 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting || cooldownRemaining > 0 || isFloatingCeremony) return;
-    handleHoldComplete();
+    if (validateBeforeHold()) {
+      handleHoldComplete();
+    }
   };
 
   if (!isOpen) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-50 overflow-y-auto flex items-end sm:items-center justify-center p-0 sm:p-4 font-thai transition-all duration-500 ${
+      className={`fixed inset-0 z-50 overflow-y-auto flex items-end sm:items-center justify-center p-0 sm:p-4 font-thai transition-opacity duration-300 ${
         isHolding || isFloatingCeremony
           ? 'bg-black/35 backdrop-blur-[2px]'
           : 'bg-black/75 backdrop-blur-md'
@@ -702,7 +856,7 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
       aria-labelledby="customizer-modal-title"
     >
       <div
-        className={`bg-slate-900/80 backdrop-blur-2xl border border-white/15 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col h-[88vh] sm:h-[730px] max-h-[92vh] sm:max-h-[760px] text-slate-100 overflow-hidden transition-all duration-700 ${
+        className={`bg-slate-900/95 sm:bg-slate-900/90 backdrop-blur-xl border border-white/15 w-full max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col h-[88vh] sm:h-[730px] max-h-[92vh] sm:max-h-[760px] text-slate-100 overflow-hidden transition-all duration-500 transform-gpu will-change-transform ${
           isFloatingCeremony
             ? 'opacity-0 scale-90 translate-y-12 pointer-events-none'
             : 'opacity-100 scale-100'
@@ -1473,16 +1627,6 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
                 )}
               </div>
 
-              {/* Hold to Pray Gentle Tip on Tap */}
-              {showHoldTip && (
-                <div className="text-center animate-bounce pt-0.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] text-amber-300 bg-amber-400/20 border border-amber-400/40 px-2.5 py-0.5 rounded-full font-medium shadow-md">
-                    <Sparkles className="w-3 h-3 text-amber-300" />
-                    <span>แตะค้างปุ่มวงกลมไว้ให้เต็มวง เพื่อตั้งจิตอธิษฐานนะ ✨</span>
-                  </span>
-                </div>
-              )}
-
               {/* Bottom Sticky Action Buttons */}
               <div className="pt-2 sm:pt-2.5 mt-auto flex items-center gap-2">
                 <button
@@ -1495,113 +1639,17 @@ export const KrathongCustomizer: React.FC<KrathongCustomizerProps> = ({
                   <span>ย้อนกลับ</span>
                 </button>
 
-                {/* Main Hold-to-Pray & Float Button (ปุ่มวงกลมกดค้างอธิษฐาน) */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onMouseDown={startHolding}
-                  onMouseUp={stopHolding}
-                  onMouseLeave={stopHolding}
-                  onTouchStart={startHolding}
-                  onTouchEnd={stopHolding}
-                  onTouchCancel={stopHolding}
-                  onContextMenu={(e) => e.preventDefault()}
-                  className={`flex-1 h-11 sm:h-12 px-3 sm:px-3.5 rounded-xl sm:rounded-2xl relative overflow-hidden select-none transition-all cursor-pointer border-2 flex items-center gap-2.5 ${
-                    cooldownRemaining > 0 || isSubmitting
-                      ? 'opacity-60 pointer-events-none border-white/10 bg-white/5'
-                      : isHolding
-                      ? 'border-amber-300 shadow-[0_0_30px_rgba(251,191,36,0.5)] scale-[0.99] bg-slate-900/95'
-                      : 'border-amber-400/50 hover:border-amber-300 shadow-lg shadow-amber-500/15 bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-amber-500/15'
-                  }`}
-                >
-                  {/* Background Progress Fill Sweep */}
-                  <div
-                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500/35 via-amber-400/50 to-amber-300/40 pointer-events-none transition-all duration-75 ease-linear"
-                    style={{ width: `${holdProgress}%` }}
-                  />
-
-                  {/* Circular Progress Ring */}
-                  <div className="relative w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0 flex items-center justify-center z-10">
-                    <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 44 44">
-                      {/* Background Track Circle */}
-                      <circle
-                        cx="22"
-                        cy="22"
-                        r="18"
-                        stroke="currentColor"
-                        strokeWidth="3.2"
-                        fill="none"
-                        className="text-white/15"
-                      />
-                      {/* Animated Golden Progress Arc */}
-                      <circle
-                        cx="22"
-                        cy="22"
-                        r="18"
-                        stroke="url(#holdGoldGrad)"
-                        strokeWidth="3.8"
-                        strokeDasharray="113.1"
-                        strokeDashoffset={113.1 - (holdProgress / 100) * 113.1}
-                        strokeLinecap="round"
-                        fill="none"
-                        className="transition-all duration-75 ease-linear"
-                      />
-                      <defs>
-                        <linearGradient id="holdGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#FEF08A" />
-                          <stop offset="50%" stopColor="#FBBF24" />
-                          <stop offset="100%" stopColor="#F59E0B" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-
-                    {/* Center Icon */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {holdProgress >= 100 ? (
-                        <Check className="w-4 h-4 text-amber-300 stroke-[3] animate-bounce" />
-                      ) : isHolding ? (
-                        <span className="text-[9px] font-black text-amber-200">
-                          {Math.round(holdProgress)}%
-                        </span>
-                      ) : (
-                        <Flame className="w-4 h-4 text-amber-300 fill-amber-300" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Button Text Details */}
-                  <div className="flex-1 min-w-0 z-10 text-left">
-                    <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1 leading-tight truncate">
-                      {isSubmitting ? (
-                        <span>กำลังส่งคำขอลงสู่สายน้ำ...</span>
-                      ) : isFloatingCeremony || holdProgress >= 100 ? (
-                        <span className="text-amber-200 flex items-center gap-1">
-                          <span>อธิษฐานสำเร็จ! กำลังลอยสู่สระ...</span>
-                          <Sparkles className="w-3 h-3 text-amber-300 animate-spin" />
-                        </span>
-                      ) : isHolding ? (
-                        <span className="text-amber-200">
-                          กำลังตั้งจิตอธิษฐาน... ({Math.round(holdProgress)}%)
-                        </span>
-                      ) : cooldownRemaining > 0 ? (
-                        <span>รออีก {cooldownRemaining} วินาที</span>
-                      ) : initialPartyCode ? (
-                        <span>กดค้างเพื่ออธิษฐาน & เข้าก๊วนเพื่อน</span>
-                      ) : mode !== 'solo' ? (
-                        <span>กดค้างเพื่ออธิษฐาน & ชวนเพื่อน</span>
-                      ) : (
-                        <span>กดค้างเพื่อตั้งจิตอธิษฐาน & ลอย</span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-slate-300/85 truncate">
-                      {isHolding
-                        ? 'อย่าเพิ่งปล่อยมือนะ กำลังส่งพลังใจ... ✨'
-                        : isFloatingCeremony
-                        ? 'ขอให้คำอธิษฐานสมปรารถนาทุกประการ'
-                        : 'แตะค้างปุ่มวงกลมไว้เพื่อปล่อยกระทงลงน้ำ'}
-                    </div>
-                  </div>
-                </div>
+                {/* Main Hold-to-Pray & Float Button (Isolated 60fps local component) */}
+                <HoldToPrayButton
+                  isSubmitting={isSubmitting}
+                  cooldownRemaining={cooldownRemaining}
+                  isFloatingCeremony={isFloatingCeremony}
+                  initialPartyCode={initialPartyCode}
+                  mode={mode}
+                  onValidateAndStart={validateBeforeHold}
+                  onHoldingChange={setIsHolding}
+                  onHoldComplete={handleHoldComplete}
+                />
               </div>
             </form>
           )}
